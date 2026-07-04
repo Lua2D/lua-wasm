@@ -34,7 +34,8 @@ Two branches, always:
 ## Passes
 
 Work proceeds in **passes**. Each pass is either a **code pass** or a **doc
-pass** — never both.
+pass** — never both. Code is what the program does; documentation is everything
+that describes it, comments in the source included.
 
 - The **last pass before integrating to `main` is always a doc pass**, so
   documentation on `main` never lags the code.
