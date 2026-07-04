@@ -1,0 +1,15 @@
+lua.wasm
+lua-lib.wasm
+lua-bench.wasm
+lua-debug
+tests/libs/*.so
+tests/libs/all
+tests/time-debug.txt
+lua_tmp_*
+wasm-aot/
+*.o
+*.a
+src/lua
+src/luac
+src/luaot
+src/luaot-trampoline
