@@ -48,7 +48,6 @@ void usage()
           "Available options are:\n"
           "  -o name            output to file 'name'\n"
           "  -m name            generate code with `name` function as main function\n"
-          "  -s                 use  switches instead of gotos in generated code\n"
           "  -e                 add a main symbol for executables\n",
           program_name);
 }

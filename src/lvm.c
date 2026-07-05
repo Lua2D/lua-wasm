@@ -1203,6 +1203,11 @@ static CallInfo *luaV_execute_(lua_State *L, CallInfo *ci)
  returning:  /* trap already set */
   cl = ci_func(ci);
   k = cl->p->k;
+  /* LUAOT is defined =1 near the top of this file as the AOT change-marker,
+  ** not an external build flag, so this block is always compiled into the
+  ** interpreter. When luaV_execute_ meets a proto that carries an AOT body,
+  ** it returns ci to the luaV_execute driver (below), which dispatches to
+  ** cl->p->aot_implementation. */
 #if LUAOT
   if (cl->p->aot_implementation) {
       return ci;
