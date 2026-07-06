@@ -98,6 +98,14 @@ regenerate the bundle first with `python3 scripts/suite-bundle.py`; needs
 playwright-core + a Chromium) and the reactor battery
 (`node scripts/reactor-stress.mjs lua-lib.wasm`).
 
+The deepest wasm witness is the AOT/interpreter differential: build with
+every suite file AOT-compiled in, then diff the two legs' output
+(`scripts/differential.sh lua-aot.wasm` → expect `differential: AGREED`;
+its documented structural exclusions and their evidence live in that
+script's header). CI home: `deep-witness.yml` → `aot-differential`
+(manual dispatch — the build compiles ~1.2M lines of generated C,
+~80 min on a standard runner).
+
 > **On old V8 (Node 22/23) the suite host-crashes.** The to-be-closed/coroutine
 > region of `locals.lua` SIGSEGVs the *host* process there — a V8 12.x-era
 > engine defect on both its EH paths, fixed in current V8 and absent on non-V8
