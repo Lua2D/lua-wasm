@@ -20,16 +20,17 @@ Work runs **align → execute → verify**. The architect is present at the ends
 agreeing the direction, checking the result — and the engineer works on its own in
 between.
 
-## Branches: `main` and `work`
+## Branches: `main` and a working branch
 
-Two branches, always:
 - **`main`** — the trunk: reviewed, documented, known-good. Never committed to
   directly.
-- **`work`** — where all development happens. Only ever this one, not a branch per
-  task.
+- **A working branch** — where development happens: one short-lived branch per
+  *integration*, created from `main`. (An agent session's designated branch
+  serves as this.) Not a branch per task: the branch carries all the passes of
+  one integration — code passes, the closing doc pass — then retires.
 
-`work` reaches `main` by integration (see *Reaching `main`*), and re-syncs to
-`main` after each.
+A working branch reaches `main` by integration (see *Reaching `main`*) and is
+deleted on merge; the next integration starts a fresh branch from `main`.
 
 ## Passes
 
@@ -125,7 +126,7 @@ does not re-grade issues it left untouched.
 
 ## Reaching `main`
 
-`work` reaches `main` by integration:
+A working branch reaches `main` by integration:
 - Each integration is a **recorded merge** — a merge commit, not a fast-forward —
   so history shows what was integrated and can be undone as a unit.
 - Integrate in **small, frequent steps**, always ending on a doc pass.

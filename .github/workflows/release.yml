@@ -59,6 +59,6 @@ jobs:
         run: |
           gh release create "${{ inputs.version }}" \
             --target "${{ github.sha }}" \
-            --title "lua-wasm ${{ inputs.version }}" \
+            --title "lua-wasi ${{ inputs.version }}" \
             --notes "Lua 5.4.8 for wasm32-wasi. Standardized wasm-EH encoding (try_table/exnref); runs on Node >= 24, current browsers, and wasmtime. lua.wasm = standalone interpreter; lua-lib.wasm = embeddable reactor (luaw_* interface, see README). Built with zig c++ 0.15.1 (clang 20.1.2); witnesses re-run at cut time by this workflow. Evidence state: doc/wasm-audit-2026-07-05.md at this tag." \
             lua.wasm lua-lib.wasm

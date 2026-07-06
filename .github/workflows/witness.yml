@@ -14,7 +14,7 @@
 name: witness
 on:
   push:
-    branches: [main, work]
+    branches: [main]
   pull_request:
 
 jobs:
