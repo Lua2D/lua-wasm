@@ -69,6 +69,7 @@ for up in "$UP_SRC"/*.c "$UP_SRC"/*.h "$UP_SRC"/*.hpp; do
     fi
   elif ! cmp -s "$up" "$ours"; then
     echo "UNEXPECTED DIFF: $f differs from stock but is not in the modified list"
+    diff -u "$up" "$ours" | head -60 || true
     fail=1
   fi
 done
