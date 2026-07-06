@@ -1,0 +1,63 @@
+<!doctype html>
+<!-- Minimal browser host for lua.wasm: fetch the artifact and a Lua script,
+     run the script via argv ('-e<src>' attached form -- see doc/wasm.md),
+     print the transcript. Serve this directory as plain static files; no
+     COOP/COEP, no SharedArrayBuffer, no Emscripten.
+       ?wasm=<url of lua.wasm>&script=<url of a .lua file>
+     window.__witness carries {done, exitCode, transcript} for the automated
+     driver (scripts/browser-witness.mjs). -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>lua-wasm in the browser</title>
+<style>
+  body { margin: 0; padding: 24px; background: #16141f; color: #e9e7f4;
+         font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+         font-size: 13px; line-height: 1.5; }
+  #console { white-space: pre-wrap; }
+  #status { margin-top: 12px; color: #9a97b2; }
+</style>
+</head>
+<body>
+<div id="console">booting…</div>
+<div id="status"></div>
+<script type="module">
+  import { WasiPreview1 } from './wasi-stdio-shim.mjs';
+
+  const out = document.getElementById('console');
+  const lines = [];
+  const emit = line => { lines.push(line); out.textContent = lines.join('\n'); };
+
+  const params = new URLSearchParams(location.search);
+  const wasmUrl = params.get('wasm') ?? './lua.wasm';
+  const scriptUrl = params.get('script') ?? './witness.lua';
+
+  window.__witness = { done: false, exitCode: null, transcript: null };
+  try {
+    const [module, luaSource] = await Promise.all([
+      WebAssembly.compileStreaming(fetch(wasmUrl)),
+      fetch(scriptUrl).then(r => {
+        if (!r.ok) throw new Error(`fetch ${scriptUrl}: ${r.status}`);
+        return r.text();
+      }),
+    ]);
+    out.textContent = '';
+    // No filesystem in the shim, by design -- the script travels as argv.
+    // Attached form: a separate '-e <src>' argument starting with '--'
+    // (a Lua comment) would read as another option to lua.c's scanner.
+    const wasi = new WasiPreview1({
+      args: ['lua', '-e' + luaSource],
+      stdout: emit,
+      stderr: line => emit('stderr: ' + line),
+    });
+    const instance = await WebAssembly.instantiate(module, wasi.importsFor(module));
+    const code = wasi.start(instance);
+    document.getElementById('status').textContent = `exit ${code}`;
+    window.__witness = { done: true, exitCode: code, transcript: lines.join('\n') };
+  } catch (err) {
+    out.textContent = 'host error: ' + (err && err.message ? err.message : err);
+    window.__witness = { done: true, exitCode: -1, transcript: 'host error: ' + err };
+  }
+</script>
+</body>
+</html>

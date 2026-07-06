@@ -1,0 +1,100 @@
+# Deep witnesses -- heavy or toolchain-proving runs, fired MANUALLY
+# (workflow_dispatch only; nothing here runs on push or PR). Each job is
+# the closing evidence for a tracked issue; authored ahead of its first
+# run, so a job's first green IS the issue's "done".
+#
+#   clang20-plain    -> issue #14 (plain clang-20 witness)
+#   aot-differential -> issue #15 (the monster AOT compile + differential)
+#   benchmarks       -> issue #16 (perf re-measurement, non-gating)
+name: deep-witness
+on:
+  workflow_dispatch:
+    inputs:
+      job:
+        description: "which deep witness to run"
+        type: choice
+        options: [clang20-plain, aot-differential, benchmarks, all]
+        default: clang20-plain
+      aot_opt:
+        description: "opt level for AOT translation units (issue #15: try -O1 first)"
+        type: string
+        default: "-O1"
+
+jobs:
+  clang20-plain:
+    if: inputs.job == 'clang20-plain' || inputs.job == 'all'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: llvm.org clang-20 + wasm32 runtime, noble wasi-libc
+        run: |
+          wget -qO- https://apt.llvm.org/llvm-snapshot.gpg.key | sudo tee /etc/apt/trusted.gpg.d/apt.llvm.org.asc
+          echo "deb http://apt.llvm.org/noble/ llvm-toolchain-noble-20 main" | sudo tee /etc/apt/sources.list.d/llvm20.list
+          sudo apt-get update
+          sudo apt-get install -y clang-20 lld-20 libclang-rt-20-dev-wasm32 wasi-libc
+      - run: python3 -m pip install wasmtime
+      - name: build with the Makefile DEFAULTS (clang++-20, /usr sysroot)
+        run: make wasm
+      - name: full suite under wasmtime
+        run: cd tests && python3 ../scripts/wasmtime-run.py ../lua.wasm -e"_port=true" all.lua
+      - name: full suite under Node 24
+        run: cd tests && node ../scripts/wasm-run.mjs ../lua.wasm -e"_port=true" all.lua
+
+  aot-differential:
+    if: inputs.job == 'aot-differential' || inputs.job == 'all'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python3 -m pip install 'ziglang==0.15.1' wasmtime
+      - name: the monster build -- every suite file AOT-compiled in
+        # ~1.22M lines of generated C (doc/wasm-audit issue #15); a later
+        # WASM_EXTRA -O flag overrides WASM_FLAGS' -O2, so aot_opt input
+        # downgrades only this build. If this still doesn't fit a standard
+        # runner, escalate runner class -- do not silently drop files.
+        run: >
+          make wasm WASM_O=lua-aot.wasm
+          WASM_AOT="$(ls tests/*.lua | grep -v -e all.lua -e suite-prefix-bundle)"
+          WASM_CLANGXX="python3 -m ziglang c++" WASM_SYSROOT=
+          WASM_EXTRA="-Xclang -target-feature -Xclang +exception-handling ${{ inputs.aot_opt }}"
+      - name: the Agreed witness -- AOT vs interpreter, byte-identical output
+        run: scripts/differential.sh lua-aot.wasm node ""
+
+  benchmarks:
+    if: inputs.job == 'benchmarks' || inputs.job == 'all'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python3 -m pip install 'ziglang==0.15.1'
+      - name: bench matrix (native interp/AOT, wasm interp/AOT)
+        # informational: CI runners are noisy shared machines; treat the
+        # output as a smoke of the harness, cite maintainer-machine runs
+        # in RESULTS.md (issue #16).
+        run: >
+          make wasm WASM_O=lua-bench.wasm
+          WASM_AOT="experiments/fib.lua experiments/nbody.lua experiments/mandelbrot.lua experiments/spectralnorm.lua experiments/fannkuch.lua"
+          WASM_CLANGXX="python3 -m ziglang c++" WASM_SYSROOT=
+          WASM_EXTRA="-Xclang -target-feature -Xclang +exception-handling"
+          && scripts/bench-all.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: bench-results
+          path: experiments/results.csv

@@ -1,0 +1,64 @@
+# Release cut -- fired MANUALLY (workflow_dispatch; issue #19). Builds the
+# default artifacts with the pinned toolchain, re-verifies them (encoding
+# check + full suite on both engines + reactor witnesses), then tags and
+# publishes with the artifacts attached. Green witnesses gate the tag: a
+# release cannot be cut from a build that didn't just prove itself.
+name: release
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "tag to cut, e.g. v0.1.0"
+        type: string
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python3 -m pip install 'ziglang==0.15.1' wasmtime
+      - name: build both artifacts (pinned toolchain, standardized encoding)
+        run: |
+          make wasm \
+            WASM_CLANGXX="python3 -m ziglang c++" WASM_SYSROOT= \
+            WASM_EXTRA="-Xclang -target-feature -Xclang +exception-handling"
+          make wasm-lib \
+            WASM_CLANGXX="python3 -m ziglang c++" WASM_SYSROOT= \
+            WASM_EXTRA="-Xclang -target-feature -Xclang +exception-handling"
+      - name: verify encoding (wasmtime rejects legacy at compile time)
+        run: |
+          python3 - <<'EOF'
+          from wasmtime import Config, Engine, Module
+          cfg = Config(); cfg.wasm_exceptions = True
+          eng = Engine(cfg)
+          for f in ("lua.wasm", "lua-lib.wasm"):
+              Module.from_file(eng, f)
+              print(f"{f}: standardized encoding confirmed")
+          EOF
+      - name: full suite, both engines
+        run: |
+          (cd tests && python3 ../scripts/wasmtime-run.py ../lua.wasm -e"_port=true" all.lua)
+          (cd tests && node ../scripts/wasm-run.mjs ../lua.wasm -e"_port=true" all.lua)
+      - name: reactor witnesses
+        run: |
+          node scripts/embed-demo.mjs lua-lib.wasm
+          node scripts/reactor-stress.mjs lua-lib.wasm
+      - name: tag and publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${{ inputs.version }}" \
+            --target "${{ github.sha }}" \
+            --title "lua-wasm ${{ inputs.version }}" \
+            --notes "Lua 5.4.8 for wasm32-wasi. Standardized wasm-EH encoding (try_table/exnref); runs on Node >= 24, current browsers, and wasmtime. lua.wasm = standalone interpreter; lua-lib.wasm = embeddable reactor (luaw_* interface, see README). Built with zig c++ 0.15.1 (clang 20.1.2); witnesses re-run at cut time by this workflow. Evidence state: doc/wasm-audit-2026-07-05.md at this tag." \
+            lua.wasm lua-lib.wasm

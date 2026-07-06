@@ -14,3 +14,4 @@ src/luac
 src/luaot
 src/luaot-trampoline
 tests/suite-prefix-bundle.lua
+lua-aot.wasm

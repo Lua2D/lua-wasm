@@ -55,3 +55,28 @@ jobs:
           WASM_CLANGXX="python3 -m ziglang c++" WASM_SYSROOT=
           WASM_EXTRA="-Xclang -target-feature -Xclang +exception-handling"
           && node scripts/embed-demo.mjs lua-lib.wasm
+          && node scripts/reactor-stress.mjs lua-lib.wasm
+
+  browser:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: toolchain
+        run: python3 -m pip install 'ziglang==0.15.1'
+      - name: build lua.wasm
+        run: >
+          make wasm
+          WASM_CLANGXX="python3 -m ziglang c++" WASM_SYSROOT=
+          WASM_EXTRA="-Xclang -target-feature -Xclang +exception-handling"
+      - name: chromium
+        run: npm i --no-save playwright@1.61.1 && npx playwright install --with-deps chromium
+      - name: suite-prefix bundle in a real Chromium (V8 as shipped)
+        run: >
+          python3 scripts/suite-bundle.py
+          && node scripts/browser-witness.mjs lua.wasm tests/suite-prefix-bundle.lua
