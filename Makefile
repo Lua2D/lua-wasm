@@ -126,12 +126,31 @@ pc:
 # WASM_CLANGXX / WASM_SYSROOT are override points: point them at a custom
 # clang or a self-built wasi-libc sysroot on the make command line, e.g.
 #   make wasm WASM_CLANGXX=clang++ WASM_SYSROOT=/opt/wasi-sysroot
-WASM_CLANGXX= clang++-19
+# The default encoding (below) needs clang 20+; `zig c++` (a clang-20+
+# driver with its own wasi sysroot) also works:
+#   make wasm WASM_CLANGXX="python3 -m ziglang c++" WASM_SYSROOT= \
+#     WASM_EXTRA="-Xclang -target-feature -Xclang +exception-handling"
+WASM_CLANGXX= clang++-20
 WASM_SYSROOT= /usr
 WASM_STACK= 8388608
 WASM_O= lua.wasm
 WASM_AOT=
 WASM_AOT_DIR= wasm-aot
+
+# EH encoding on the wire. 'standard' (default) emits the standardized
+# try_table/exnref instructions -- needs LLVM 20+ to build, and runs on
+# V8 with stable exnref (Node >= 24, current browsers) and on non-V8
+# runtimes (wasmtime). 'legacy' emits the pre-standard try/catch
+# encoding that clang 18/19 produce -- only V8 engines accept it, and
+# V8 12.x host-crashes on the suite's <close>-in-coroutines patterns
+# under it (doc/wasm-audit-2026-07-05.md, finding 1); kept only as a
+# bridge for toolchains without clang 20.
+WASM_EH_ENCODING= standard
+ifeq ($(strip $(WASM_EH_ENCODING)),standard)
+WASM_EH_ENC_FLAGS= -mllvm -wasm-use-legacy-eh=false
+else
+WASM_EH_ENC_FLAGS=
+endif
 
 # EH runtime. 'internal' (default) uses the self-contained catch(...)-only
 # micro-runtime in src/onelua.c -- no libc++abi required, but catch(...)
@@ -162,7 +181,7 @@ WASM_FLAGS= --target=wasm32-wasi --sysroot=$(WASM_SYSROOT) -O2 -fno-strict-alias
 	  -Isrc/wasi -Isrc \
 	  -D_WASI_EMULATED_SIGNAL -D_WASI_EMULATED_PROCESS_CLOCKS \
 	  -DLUA_USE_JUMPTABLE=0 \
-	  $(WASM_EH_DEFS) $(WASM_EH_FLAGS) \
+	  $(WASM_EH_ENC_FLAGS) $(WASM_EH_DEFS) $(WASM_EH_FLAGS) \
 	  -Wl,-z,stack-size=$(WASM_STACK) \
 	  -lwasi-emulated-signal -lwasi-emulated-process-clocks
 
