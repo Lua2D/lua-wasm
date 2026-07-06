@@ -196,8 +196,11 @@ WASM_FLAGS= $(WASM_CFLAGS) $(WASM_LDFLAGS)
 # T library that unlocks the suite's C-API battery). Witness-only.
 # Run: cd tests && ../lua-debug all.lua   (expect zero 'testC not
 # active' skips and 'final OK !!!'). The full run needs the suite's
-# C libraries built first (make -C tests/libs); without them, use
-# port mode (-e"_port=true"), which is what CI enforces.
+# C libraries built first (make -C tests/libs LUA_DIR=../../src, headers
+# being in src/); CI builds them and runs this full mode. Without them,
+# port mode (-e"_port=true") skips the shell-and-dynlib-dependent checks.
+# Full mode needs non-seekable stdin (files.lua's invalid-seek test); the
+# CI job pipes it (': |').
 lua-debug:
 	$(CC) -O1 -g -DLUA_USE_LINUX -DLUA_USE_READLINE \
 	  -DLUA_LTESTS '-DLUA_USER_H="ltests.h"' -Itests/ltests -Isrc \
