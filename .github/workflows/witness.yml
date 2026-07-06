@@ -1,11 +1,18 @@
 # The witnesses, re-run on every change (AGENTS.md durability: CI-enforced).
 #
 # native: the deepest witness -- the ltests-instrumented interpreter
-#   (checked allocator, internal assertions) runs the official suite.
+#   (checked allocator, internal assertions) runs the full official
+#   suite, C-API battery included.
 # wasm: the artifact witnesses -- the interpreter passes the official
 #   suite on two engines (wasmtime = non-V8 cross-check; Node 24 = V8
 #   with stable exnref), and the embeddable reactor passes its
-#   host-interface witness.
+#   host-interface witness plus the stress battery.
+# embed: the link-Lua-in consumer shape (#11) -- the source-drop
+#   downstream (AOT module + Lua error across the boundary) and the
+#   external-EH witness (typed catches via a real wasm-EH libc++abi).
+# browser: the suite-prefix bundle in a real Chromium.
+# provenance: the vendored core is verbatim stock 5.4.8 outside the
+#   declared files.
 #
 # Toolchain: zig c++ (pinned 0.15.1 = clang 20.1.2) -- the standardized
 # EH encoding needs LLVM 20+, which Ubuntu does not package; zig carries

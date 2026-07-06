@@ -163,6 +163,8 @@ endif
 #   make wasm WASM_EH=external \
 #     WASM_EH_FLAGS="-L/path/to/rt/lib" \
 #     WASM_EH_LIBS="-lc++ -lc++abi /path/to/libunwind_wasm.a"
+# No distro ships a wasm-EH libc++abi; examples/embed/build-eh.sh builds
+# one from zig's bundled LLVM runtime sources (and is the CI witness).
 WASM_EH= internal
 WASM_EH_FLAGS=
 WASM_EH_LIBS=
