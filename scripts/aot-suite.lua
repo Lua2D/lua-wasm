@@ -64,11 +64,25 @@ assert(run('locals.lua') == 5)
 run('constructs.lua')
 run('code.lua')
 do
-  -- big.lua yields from its main chunk; an AOT module's luaopen_ runs
-  -- the chunk under lua_call, which cannot host a yield, so this file
-  -- runs interpreted in both modes (all.lua also special-cases it)
+  -- big.lua yields from its main chunk, so it cannot go through run()'s
+  -- plain call; it is wrapped in a coroutine, as upstream's all.lua does.
+  -- The AOT module's luaopen_ runs the chunk via lua_callk (see
+  -- luaot_footer.c), so the wrapped C function can host those yields and
+  -- the AOT leg runs the compiled chunk like any other file.
   print("\n***** FILE 'big.lua' *****")
-  local f = coroutine.wrap(assert(loadfile('big.lua')))
+  local excluded = EXCLUDE:find('big', 1, true) ~= nil
+  local open = (MODE == "aot" and not excluded) and package.preload.aot_big or nil
+  local f
+  if open then
+    aot_count = aot_count + 1
+    f = coroutine.wrap(open)
+  else
+    if MODE == "aot" then
+      io.stderr:write("interpreted fallback: big.lua\n")
+    end
+    interp_count = interp_count + 1
+    f = coroutine.wrap(assert(loadfile('big.lua')))
+  end
   assert(f() == 'b')
   assert(f() == 'a')
 end

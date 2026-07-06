@@ -3,6 +3,17 @@
 
 static int next_id = 0;
 
+/* Continuation for running the module's main chunk: everything after
+   the call is just "return the chunk's single result", so the same
+   function serves both the direct return and the resume-after-yield
+   path. Without it, lua_call would make luaopen_ a C-call boundary
+   that a coroutine.yield from the chunk's main body cannot cross. */
+static int luaot_runchunk_k(lua_State *L, int status, lua_KContext ctx)
+{
+    (void)L; (void)status; (void)ctx;
+    return 1;
+}
+
 static
 void bind_magic(Proto *f)
 {
@@ -47,6 +58,6 @@ int LUAOT_LUAOPEN_NAME(lua_State *L) {
     LClosure *cl = (void *) lua_topointer(L, -1);
     bind_magic(cl->p);
 
-    lua_call(L, 0, 1);
-    return 1;
+    lua_callk(L, 0, 1, 0, luaot_runchunk_k);
+    return luaot_runchunk_k(L, LUA_OK, 0);
 }
