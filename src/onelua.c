@@ -356,10 +356,18 @@ static void luaw_ltests_openlibs (lua_State *L) {
 
 /*
 ** ── The embedding interface ─────────────────────────────────────────
-** MAKE_LIB wasm builds are reactors: the host calls in, the VM
+** MAKE_REACTOR wasm builds are reactors: the host calls in, the VM
 ** returns. The host interface is WASI (stdio, filesystem, clock --
 ** print() arrives at the host as fd_write on fd 1) plus the exports
 ** below, and nothing else.
+**
+** This glue is opt-in (-DMAKE_REACTOR, set by the Makefile's wasm-lib
+** target), NOT implied by MAKE_LIB. A downstream that links Lua into
+** its own wasm32-wasi artifact (issue #11) compiles onelua.c with plain
+** -DMAKE_LIB and drives the VM through lua.h directly; it must not
+** inherit these luaw_* exports, whose reactor coroutine model is a
+** property of *this* project's finished artifact, not of the embeddable
+** core. So the reactor belongs to the artifact build alone.
 **
 ** The contract, per the constitution: no call here ever blocks. A
 ** long-lived program (a game's main loop) runs as a coroutine --
@@ -371,7 +379,7 @@ static void luaw_ltests_openlibs (lua_State *L) {
 ** returns a Lua status code (LUA_OK == 0); the message is held in the
 ** registry (so the pointer stays valid) until the next entry call.
 */
-#if defined(__wasm__) && defined(MAKE_LIB)
+#if defined(__wasm__) && defined(MAKE_REACTOR)
 
 #define LUAW_API __attribute__((used, visibility("default")))
 
