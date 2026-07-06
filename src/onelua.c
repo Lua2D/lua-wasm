@@ -96,6 +96,14 @@
 #endif
 
 #if defined(__cplusplus)
+#ifndef LUAW_EXTERNAL_EH
+/* LUAW_EXTERNAL_EH: define to suppress this micro-runtime and let a real
+   C++ ABI library (a libc++abi built with -fwasm-exceptions) own exception
+   dispatch. An embedder whose host code needs typed catches -- not just
+   Lua's own catch(...) -- must use that mode, so Lua errors and the host's
+   typed exceptions travel one coherent EH domain. See the Makefile's
+   WASM_EH knob, which wires this define together with the external libc++abi
+   link line. Default (undefined) keeps the self-contained shim below. */
 
 extern "C" {
 
@@ -136,6 +144,8 @@ void __luawasm_terminate (void) __asm__("_ZSt9terminatev");
 void __luawasm_terminate (void) { abort(); }
 
 }  /* extern "C" */
+
+#endif /* !LUAW_EXTERNAL_EH */
 
 #else /* !__cplusplus: the C sjlj runtime */
 

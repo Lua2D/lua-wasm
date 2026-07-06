@@ -1,0 +1,57 @@
+# The witnesses, re-run on every change (AGENTS.md durability: CI-enforced).
+#
+# native: the deepest witness -- the ltests-instrumented interpreter
+#   (checked allocator, internal assertions) runs the official suite.
+# wasm: the artifact witnesses -- the interpreter passes the official
+#   suite on two engines (wasmtime = non-V8 cross-check; Node 24 = V8
+#   with stable exnref), and the embeddable reactor passes its
+#   host-interface witness.
+#
+# Toolchain: zig c++ (pinned 0.15.1 = clang 20.1.2) -- the standardized
+# EH encoding needs LLVM 20+, which Ubuntu does not package; zig carries
+# its own wasi sysroot. 0.16 (LLVM 21) miscompiles this build (its
+# backend rejects the micro-runtime's tag symbols; see src/onelua.c).
+name: witness
+on:
+  push:
+    branches: [main, work]
+  pull_request:
+
+jobs:
+  native:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - run: sudo apt-get update && sudo apt-get install -y libreadline-dev
+      - name: build the ltests debug interpreter
+        run: make lua-debug
+      - name: official suite, ltests build (port mode)
+        run: cd tests && ../lua-debug -e"_port=true" all.lua
+
+  wasm:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: toolchain (zig c++ = clang 20.1.2; wasmtime)
+        run: python3 -m pip install 'ziglang==0.15.1' wasmtime
+      - name: build lua.wasm (standardized EH encoding)
+        run: >
+          make wasm
+          WASM_CLANGXX="python3 -m ziglang c++" WASM_SYSROOT=
+          WASM_EXTRA="-Xclang -target-feature -Xclang +exception-handling"
+      - name: official suite under wasmtime (non-V8 engine)
+        run: cd tests && python3 ../scripts/wasmtime-run.py ../lua.wasm -e"_port=true" all.lua
+      - name: official suite under Node 24 (V8, stable exnref)
+        run: cd tests && node ../scripts/wasm-run.mjs ../lua.wasm -e"_port=true" all.lua
+      - name: build the reactor and run the embed witness
+        run: >
+          make wasm-lib
+          WASM_CLANGXX="python3 -m ziglang c++" WASM_SYSROOT=
+          WASM_EXTRA="-Xclang -target-feature -Xclang +exception-handling"
+          && node scripts/embed-demo.mjs lua-lib.wasm
