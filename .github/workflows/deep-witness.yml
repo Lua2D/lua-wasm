@@ -55,22 +55,24 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 24
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-      - run: python3 -m pip install 'ziglang==0.15.1' wasmtime
+      - name: llvm.org clang-20 + wasm32 runtime, noble wasi-libc
+        run: |
+          wget -qO- https://apt.llvm.org/llvm-snapshot.gpg.key | sudo tee /etc/apt/trusted.gpg.d/apt.llvm.org.asc
+          echo "deb http://apt.llvm.org/noble/ llvm-toolchain-noble-20 main" | sudo tee /etc/apt/sources.list.d/llvm20.list
+          sudo apt-get update
+          sudo apt-get install -y clang-20 lld-20 libclang-rt-20-dev-wasm32 wasi-libc
       - name: the monster build -- every suite file AOT-compiled in
         # ~1.22M lines of generated C; measured ~15.5 min per 96k-line unit
         # on the wasm target with -O1 ~= -O2 (the backend dominates, issue
         # #15) -> sequential worst case ~3h, hence the 360min timeout. The
         # real fix is parallel per-unit compiles (issue #15 scope); if a
         # standard runner still doesn't fit, escalate runner class -- do
-        # not silently drop files.
+        # not silently drop files. (tr: make's for-loop recipe needs a
+        # space-separated list, ls emits newlines.)
         run: >
           make wasm WASM_O=lua-aot.wasm
-          WASM_AOT="$(ls tests/*.lua | grep -v -e all.lua -e suite-prefix-bundle)"
-          WASM_CLANGXX="python3 -m ziglang c++" WASM_SYSROOT=
-          WASM_EXTRA="-Xclang -target-feature -Xclang +exception-handling ${{ inputs.aot_opt }}"
+          WASM_AOT="$(ls tests/*.lua | grep -v -e all.lua -e suite-prefix-bundle | tr '\n' ' ')"
+          WASM_EXTRA="${{ inputs.aot_opt }}"
       - name: the Agreed witness -- AOT vs interpreter, byte-identical output
         run: scripts/differential.sh lua-aot.wasm node ""
 
@@ -82,20 +84,18 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 24
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-      - run: python3 -m pip install 'ziglang==0.15.1'
+      - name: llvm.org clang-20 + wasm32 runtime, noble wasi-libc
+        run: |
+          wget -qO- https://apt.llvm.org/llvm-snapshot.gpg.key | sudo tee /etc/apt/trusted.gpg.d/apt.llvm.org.asc
+          echo "deb http://apt.llvm.org/noble/ llvm-toolchain-noble-20 main" | sudo tee /etc/apt/sources.list.d/llvm20.list
+          sudo apt-get update
+          sudo apt-get install -y clang-20 lld-20 libclang-rt-20-dev-wasm32 wasi-libc
       - name: bench matrix (native interp/AOT, wasm interp/AOT)
         # informational: CI runners are noisy shared machines; treat the
         # output as a smoke of the harness, cite maintainer-machine runs
-        # in RESULTS.md (issue #16).
-        run: >
-          make wasm WASM_O=lua-bench.wasm
-          WASM_AOT="experiments/fib.lua experiments/nbody.lua experiments/mandelbrot.lua experiments/spectralnorm.lua experiments/fannkuch.lua"
-          WASM_CLANGXX="python3 -m ziglang c++" WASM_SYSROOT=
-          WASM_EXTRA="-Xclang -target-feature -Xclang +exception-handling"
-          && scripts/bench-all.sh
+        # in RESULTS.md (issue #16). bench-all.sh builds everything it
+        # needs via Makefile defaults (clang++-20, installed above).
+        run: scripts/bench-all.sh
       - uses: actions/upload-artifact@v4
         with:
           name: bench-results
