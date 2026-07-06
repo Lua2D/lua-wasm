@@ -2,8 +2,13 @@
 # verify-stock.sh -- witness that the vendored Lua core is verbatim stock
 # 5.4.8 except for the files we knowingly changed for AOT hooking.
 #
-# The fork vendors PUC-Rio Lua 5.4.8 and modifies exactly four files
-# (lobject.h, lfunc.c, lvm.c, luaconf.h). This script diffs every source
+# The fork vendors PUC-Rio Lua 5.4.8 and modifies exactly five files:
+# lobject.h, lfunc.c, lvm.c, luaconf.h (AOT hooking), and luac.c (the
+# assert-safe bytecode-listing rework described in UPDATING: stock luac
+# hoists GETARG_* into locals, which trips lua_assert on opcodes lacking
+# those argument formats under -DLUAI_ASSERT; found by this witness's
+# first CI run -- it was inherited from the lua-aot import, undeclared).
+# This script diffs every source
 # file present in both the official release and src/:
 #   - a file outside the known-modified set that differs   -> FAIL
 #   - a known-modified file that is byte-identical to stock -> FAIL (the
@@ -26,7 +31,7 @@ LUA_VERSION=5.4.8
 LUA_SHA256=""
 URL="https://www.lua.org/ftp/lua-${LUA_VERSION}.tar.gz"
 
-MODIFIED="lobject.h lfunc.c lvm.c luaconf.h"
+MODIFIED="lobject.h lfunc.c lvm.c luaconf.h luac.c"
 REPO_SRC=$(CDPATH= cd "$(dirname "$0")/../src" && pwd)
 
 work=$(mktemp -d)
