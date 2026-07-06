@@ -112,9 +112,10 @@ pc:
 # The wasm atom: the whole interpreter as one translation unit, one artifact.
 # Compiled as C++ so Lua's error handling rides the wasm exception-handling
 # proposal (see src/onelua.c for why the C sjlj route is blocked today).
-# Toolchain: clang with a wasm32-wasi sysroot (Ubuntu: apt install clang-19
-# wasi-libc libclang-rt-19-dev-wasm32 lld-19). Run under any WASI host with
-# wasm EH support, e.g.: node scripts/wasm-run.mjs lua.wasm script.lua
+# Toolchain: clang 20+ with a wasm32-wasi sysroot (doc/wasm.md; zig c++
+# recipe below for hosts without a packaged clang 20). Run under any WASI
+# host with wasm EH support: node scripts/wasm-run.mjs lua.wasm script.lua
+# (Node >= 24), or python3 scripts/wasmtime-run.py lua.wasm script.lua.
 #
 # AOT: pass WASM_AOT="path/to/mod.lua ..." to compile Lua modules ahead of
 # time with luaot (built natively on demand) and link them into the same

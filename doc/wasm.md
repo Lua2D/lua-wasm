@@ -6,18 +6,30 @@ build, run, and embed it, plus the sharp edges.
 
 ## Toolchain
 
-`clang-19`, `wasi-libc`, `libclang-rt-19-dev-wasm32`, `lld-19` (Ubuntu package
-names). `WASM_CLANGXX` and `WASM_SYSROOT` are override points for a custom
-compiler or a self-built sysroot:
+**clang 20+** with a wasi-libc sysroot (the default EH encoding needs LLVM 20 —
+see the encoding section below). `WASM_CLANGXX` and `WASM_SYSROOT` are override
+points for a custom compiler or a self-built sysroot:
 
 ```bash
-make wasm                                            # /usr sysroot, clang++-19
+make wasm                                            # /usr sysroot, clang++-20
 make wasm WASM_CLANGXX=clang++ WASM_SYSROOT=/opt/wasi-sysroot
 ```
 
+On hosts without a packaged clang 20, `zig c++` is a self-contained clang-20+
+driver with its own wasi sysroot (`pip install ziglang`), witnessed for this
+exact build:
+
+```bash
+make wasm WASM_CLANGXX="python3 -m ziglang c++" WASM_SYSROOT= \
+  WASM_EXTRA="-Xclang -target-feature -Xclang +exception-handling"
+```
+
+(The `-Xclang` pair works around zig's own CPU-feature mapping not enabling the
+wasm EH feature that `-fwasm-exceptions` implies under plain clang.)
+
 Running the artifact needs a WASI host with wasm exception-handling support —
-Node ≥ 24, or a current browser (see *Runtime portability* below for the
-non-browser story).
+Node ≥ 24, a current browser, or wasmtime via `scripts/wasmtime-run.py` (see
+the encoding section for which hosts take which encoding).
 
 ## Exception-handling runtime: `WASM_EH`
 
@@ -71,19 +83,41 @@ ad-hoc chunks do) is ambiguous to the standalone interpreter's argument scan;
 `-e<chunk>` avoids it. This matters most when driving the artifact purely
 through `argv` — the natural path when there is no filesystem to load from.
 
-> **Known limitation.** As of pin `945f810`, an external bring-up audit reports
-> that `locals.lua` (the `<close>` / to-be-closed region) segfaults the *host*
-> process under the wasm build on Node 22 / V8. See
-> [`wasm-audit-2026-07-05.md`](wasm-audit-2026-07-05.md). This is not yet
-> reproduced under CI in this repository; it is recorded here so the suite-run
-> instructions above are not mistaken for a clean-pass claim.
+The same suite runs under wasmtime — the non-V8 cross-check:
 
-## Runtime portability
+```bash
+pip install wasmtime
+cd tests
+python3 ../scripts/wasmtime-run.py ../lua.wasm -e"_port=true" all.lua
+# → final OK !!!
+```
 
-The artifact is emitted with the **legacy** wasm exception-handling encoding
-(`try`/`catch`), which is what clang ≤ 19 produces. Browsers and Node run it;
-non-browser runtimes such as wasmtime reject it (`legacy_exceptions feature
-required`). The standardized encoding (`try_table` / `exnref`, emitted by
-LLVM 20+) would restore that runtime breadth. Moving to it is an open design
-question — it raises the toolchain floor to LLVM 20 — tracked in
-[`wasm-audit-2026-07-05.md`](wasm-audit-2026-07-05.md), finding 2.
+> **On old V8 (Node 22/23) the suite host-crashes.** The to-be-closed/coroutine
+> region of `locals.lua` SIGSEGVs the *host* process there — a V8 12.x-era
+> engine defect on both its EH paths, fixed in current V8 and absent on non-V8
+> runtimes. The full triage, and the portable one-file repro
+> (`scripts/suite-bundle.py`), are in
+> [`wasm-audit-2026-07-05.md`](wasm-audit-2026-07-05.md). It is why the Node
+> floor is 24, not 22.
+
+## EH encoding: `WASM_EH_ENCODING`
+
+Wasm exception handling exists in two wire formats, and hosts differ on which
+they accept. `WASM_EH_ENCODING` selects the one the artifact carries:
+
+| `WASM_EH_ENCODING` | instructions | build needs | runs on |
+| - | - | - | - |
+| `standard` (default) | `try_table`/`exnref` (the standardized format) | LLVM 20+ | V8 with stable exnref (Node ≥ 24, current browsers), wasmtime and other non-V8 runtimes |
+| `legacy` | `try`/`catch` (pre-standard) | clang 18/19 suffice | V8 engines only; wasmtime rejects it (`legacy_exceptions feature required`) |
+
+Witnessed on this pin (zig c++ / clang 20.1.2; engines: wasmtime 36,
+Chromium 141 = V8 14.1, Node 22 = V8 12.4):
+
+- `standard`: full suite passes under wasmtime; suite-prefix witness passes in
+  Chromium 141. On Node 22 (V8's *experimental* exnref, `--experimental-wasm-exnref`)
+  it still host-crashes — that V8 generation is broken on both paths; use Node ≥ 24.
+- `legacy`: rejected by wasmtime; passes the suite-prefix witness on
+  Chromium 141; host-crashes old V8 (the audit's original finding).
+
+`legacy` exists only as a bridge for toolchains stuck below clang 20 targeting
+browsers/Node exclusively; there is no other reason to choose it.
