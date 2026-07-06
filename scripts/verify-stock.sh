@@ -24,11 +24,9 @@
 set -eu
 
 LUA_VERSION=5.4.8
-# FIXME: pin the official sha256 of lua-5.4.8.tar.gz here. It was not
-# obtainable from the authoring sandbox (lua.org egress denied); fill it
-# from https://www.lua.org/ftp/ before relying on this as a witness. While
-# it is empty the download path runs with the integrity check skipped.
-LUA_SHA256=""
+# sha256 of the official lua-5.4.8.tar.gz, pinned from the provenance
+# job's first green run (witness.yml, run 28798839189, 2026-07-06).
+LUA_SHA256="4f18ddae154e793e46eeab727c59ef1c0c0c2b744e7b94219710d76f530629ae"
 URL="https://www.lua.org/ftp/lua-${LUA_VERSION}.tar.gz"
 
 MODIFIED="lobject.h lfunc.c lvm.c luaconf.h luac.c"
