@@ -22,11 +22,33 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
-      - run: sudo apt-get update && sudo apt-get install -y libreadline-dev
+      - run: sudo apt-get update && sudo apt-get install -y libreadline-dev locales
+      - name: pt_BR locale (so the suite's decimal-point tests run, not skip)
+        # Best-effort, non-gating: the gate below tolerates the environmental
+        # locale skip (upstream does too); this just lets those tests run.
+        run: sudo locale-gen pt_BR.UTF-8 pt_BR || true
       - name: build the ltests debug interpreter
         run: make lua-debug
-      - name: official suite, ltests build (port mode)
-        run: cd tests && ../lua-debug -e"_port=true" all.lua
+      - name: build the suite's C libraries (unlocks the C-API 'testC' battery)
+        # Headers live in src/, so LUA_DIR overrides the stock makefile default.
+        run: make -C tests/libs LUA_DIR=../../src
+      - name: official suite, full ltests build (C-API battery, zero-skips gate)
+        # Full mode (no _port) exercises the tests/libs C modules -- the C-API
+        # 'testC' battery port mode cannot reach. Two non-obvious requirements,
+        # both witnessed before landing:
+        #  * stdin MUST be non-seekable. files.lua's invalid-seek test asserts
+        #    io.stdin:seek() fails; that only holds on a pipe -- a redirect or
+        #    /dev/null seeks fine (returns 0) and trips the assert. So: ': |'.
+        #  * the gate is 'final OK !!!' present AND zero 'testC not active'
+        #    skips (the Makefile's stated bar); the locale skip is tolerated.
+        run: |
+          set -euo pipefail
+          cd tests
+          : | ../lua-debug all.lua 2>&1 | tee /tmp/suite.log
+          grep -q 'final OK !!!' /tmp/suite.log \
+            || { echo "::error::suite did not reach 'final OK !!!'"; exit 1; }
+          ! grep -q 'testC not active' /tmp/suite.log \
+            || { echo "::error::C-API tests skipped (testC not active); tests/libs missing"; exit 1; }
 
   wasm:
     runs-on: ubuntu-24.04
