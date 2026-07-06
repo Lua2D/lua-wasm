@@ -1,11 +1,18 @@
 # The witnesses, re-run on every change (AGENTS.md durability: CI-enforced).
 #
 # native: the deepest witness -- the ltests-instrumented interpreter
-#   (checked allocator, internal assertions) runs the official suite.
+#   (checked allocator, internal assertions) runs the full official
+#   suite, C-API battery included.
 # wasm: the artifact witnesses -- the interpreter passes the official
 #   suite on two engines (wasmtime = non-V8 cross-check; Node 24 = V8
 #   with stable exnref), and the embeddable reactor passes its
-#   host-interface witness.
+#   host-interface witness plus the stress battery.
+# embed: the link-Lua-in consumer shape (#11) -- the source-drop
+#   downstream (AOT module + Lua error across the boundary) and the
+#   external-EH witness (typed catches via a real wasm-EH libc++abi).
+# browser: the suite-prefix bundle in a real Chromium.
+# provenance: the vendored core is verbatim stock 5.4.8 outside the
+#   declared files.
 #
 # Toolchain: zig c++ (pinned 0.15.1 = clang 20.1.2) -- the standardized
 # EH encoding needs LLVM 20+, which Ubuntu does not package; zig carries
@@ -22,11 +29,33 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
-      - run: sudo apt-get update && sudo apt-get install -y libreadline-dev
+      - run: sudo apt-get update && sudo apt-get install -y libreadline-dev locales
+      - name: pt_BR locale (so the suite's decimal-point tests run, not skip)
+        # Best-effort, non-gating: the gate below tolerates the environmental
+        # locale skip (upstream does too); this just lets those tests run.
+        run: sudo locale-gen pt_BR.UTF-8 pt_BR || true
       - name: build the ltests debug interpreter
         run: make lua-debug
-      - name: official suite, ltests build (port mode)
-        run: cd tests && ../lua-debug -e"_port=true" all.lua
+      - name: build the suite's C libraries (unlocks the C-API 'testC' battery)
+        # Headers live in src/, so LUA_DIR overrides the stock makefile default.
+        run: make -C tests/libs LUA_DIR=../../src
+      - name: official suite, full ltests build (C-API battery, zero-skips gate)
+        # Full mode (no _port) exercises the tests/libs C modules -- the C-API
+        # 'testC' battery port mode cannot reach. Two non-obvious requirements,
+        # both witnessed before landing:
+        #  * stdin MUST be non-seekable. files.lua's invalid-seek test asserts
+        #    io.stdin:seek() fails; that only holds on a pipe -- a redirect or
+        #    /dev/null seeks fine (returns 0) and trips the assert. So: ': |'.
+        #  * the gate is 'final OK !!!' present AND zero 'testC not active'
+        #    skips (the Makefile's stated bar); the locale skip is tolerated.
+        run: |
+          set -euo pipefail
+          cd tests
+          : | ../lua-debug all.lua 2>&1 | tee /tmp/suite.log
+          grep -q 'final OK !!!' /tmp/suite.log \
+            || { echo "::error::suite did not reach 'final OK !!!'"; exit 1; }
+          ! grep -q 'testC not active' /tmp/suite.log \
+            || { echo "::error::C-API tests skipped (testC not active); tests/libs missing"; exit 1; }
 
   wasm:
     runs-on: ubuntu-24.04
@@ -56,6 +85,37 @@ jobs:
           WASM_EXTRA="-Xclang -target-feature -Xclang +exception-handling"
           && node scripts/embed-demo.mjs lua-lib.wasm
           && node scripts/reactor-stress.mjs lua-lib.wasm
+
+  embed:
+    # The second consumer shape (#11): a downstream that links Lua *into*
+    # its own wasm32-wasi artifact via the source-drop path, drives an
+    # AOT-compiled module, and catches a Lua error across the boundary.
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: toolchain (zig c++ = clang 20.1.2)
+        run: python3 -m pip install 'ziglang==0.15.1'
+      - name: build the embed example (link Lua in) and run its witness
+        run: |
+          set -o pipefail
+          WASM_CXX="python3 -m ziglang c++" WASM_SYSROOT= \
+          WASM_EXTRA="-Xclang -target-feature -Xclang +exception-handling" \
+            examples/embed/build.sh | tee /tmp/embed.log
+          grep -q 'EMBED WITNESS OK' /tmp/embed.log \
+            || { echo "::error::embed example did not print EMBED WITNESS OK"; exit 1; }
+      - name: external-EH witness (typed catches with a real wasm-EH libc++abi)
+        # WASM_EH=external's runtime proof: the micro-shim suppressed, a real
+        # libc++abi built with -fwasm-exceptions from zig's bundled LLVM
+        # runtime sources, and a downstream catching its own TYPED exception
+        # while Lua errors travel the same runtime. See build-eh.sh.
+        run: |
+          set -o pipefail
+          examples/embed/build-eh.sh | tee /tmp/embed-eh.log
+          grep -q 'EXTERNAL-EH WITNESS OK' /tmp/embed-eh.log \
+            || { echo "::error::external-EH witness did not print EXTERNAL-EH WITNESS OK"; exit 1; }
 
   browser:
     runs-on: ubuntu-24.04

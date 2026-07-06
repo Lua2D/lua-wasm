@@ -54,6 +54,12 @@ make wasm WASM_EH=external \
   WASM_EH_LIBS="-lc++ -lc++abi /path/to/libunwind_wasm.a"
 ```
 
+No distro ships a libc++abi built with wasm-EH (zig's bundled one included) —
+`examples/embed/build-eh.sh` is the in-tree recipe that builds one from zig's
+bundled LLVM runtime sources in seconds, and the CI witness that proves typed
+catches work through it. `doc/embedding.md` covers when an embedder needs this
+mode.
+
 ### Hazard: the micro-shim wins silently
 
 Linking a real libc++abi **without** `WASM_EH=external` (i.e. without

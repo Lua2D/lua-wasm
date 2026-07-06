@@ -163,6 +163,8 @@ endif
 #   make wasm WASM_EH=external \
 #     WASM_EH_FLAGS="-L/path/to/rt/lib" \
 #     WASM_EH_LIBS="-lc++ -lc++abi /path/to/libunwind_wasm.a"
+# No distro ships a wasm-EH libc++abi; examples/embed/build-eh.sh builds
+# one from zig's bundled LLVM runtime sources (and is the CI witness).
 WASM_EH= internal
 WASM_EH_FLAGS=
 WASM_EH_LIBS=
@@ -177,22 +179,30 @@ endif
 # type-based aliasing analysis (witnessed by 5.4.8's gc reentrancy
 # test; correct at -O1/-Os and with this flag). The standard mitigation,
 # same as SQLite and the kernel ship with.
-WASM_FLAGS= --target=wasm32-wasi --sysroot=$(WASM_SYSROOT) -O2 -fno-strict-aliasing \
+# Split into compile-only and link-only halves so the archive target
+# (liblua.a, below) can compile without the link inputs. WASM_FLAGS keeps
+# its original expansion for the wasm/wasm-lib targets -- CFLAGS then LDFLAGS,
+# byte-identical to before the split.
+WASM_CFLAGS= --target=wasm32-wasi --sysroot=$(WASM_SYSROOT) -O2 -fno-strict-aliasing \
 	  -fwasm-exceptions -nostdlib++ \
 	  -Isrc/wasi -Isrc \
 	  -D_WASI_EMULATED_SIGNAL -D_WASI_EMULATED_PROCESS_CLOCKS \
 	  -DLUA_USE_JUMPTABLE=0 \
-	  $(WASM_EH_ENC_FLAGS) $(WASM_EH_DEFS) $(WASM_EH_FLAGS) \
-	  -Wl,-z,stack-size=$(WASM_STACK) \
+	  $(WASM_EH_ENC_FLAGS) $(WASM_EH_DEFS) $(WASM_EH_FLAGS)
+WASM_LDFLAGS= -Wl,-z,stack-size=$(WASM_STACK) \
 	  -lwasi-emulated-signal -lwasi-emulated-process-clocks
+WASM_FLAGS= $(WASM_CFLAGS) $(WASM_LDFLAGS)
 
 # The deepest witness: a native debug interpreter with upstream's
 # ltests instrumentation (checked allocator, internal assertions, the
 # T library that unlocks the suite's C-API battery). Witness-only.
 # Run: cd tests && ../lua-debug all.lua   (expect zero 'testC not
 # active' skips and 'final OK !!!'). The full run needs the suite's
-# C libraries built first (make -C tests/libs); without them, use
-# port mode (-e"_port=true"), which is what CI enforces.
+# C libraries built first (make -C tests/libs LUA_DIR=../../src, headers
+# being in src/); CI builds them and runs this full mode. Without them,
+# port mode (-e"_port=true") skips the shell-and-dynlib-dependent checks.
+# Full mode needs non-seekable stdin (files.lua's invalid-seek test); the
+# CI job pipes it (': |').
 lua-debug:
 	$(CC) -O1 -g -DLUA_USE_LINUX -DLUA_USE_READLINE \
 	  -DLUA_LTESTS '-DLUA_USER_H="ltests.h"' -Itests/ltests -Isrc \
@@ -208,7 +218,7 @@ lua-debug:
 WASM_LIB_O= lua-lib.wasm
 WASM_MODE=
 
-wasm-lib: WASM_MODE= -DMAKE_LIB -mexec-model=reactor -Wl,--export-dynamic
+wasm-lib: WASM_MODE= -DMAKE_LIB -DMAKE_REACTOR -mexec-model=reactor -Wl,--export-dynamic
 wasm-lib: WASM_O= $(WASM_LIB_O)
 wasm-lib: wasm
 
@@ -253,7 +263,45 @@ endif
 	  fi; \
 	fi
 
+# ── Embeddable archive: link Lua into a downstream wasm32-wasi artifact (#11) ──
+# The second consumer shape. Not a host wrapping the finished lua.wasm, but a
+# C/C++ project targeting wasm32-wasi that needs Lua *inside* its own module.
+# Two paths, one contract (doc/embedding.md):
+#   * recommended -- source drop: compile src/onelua.c -DMAKE_LIB in your own
+#     build under the flag contract. Self-satisfying (one compiler, one flag
+#     set, no prebuilt-ABI drift).
+#   * convenience -- this prebuilt liblua.a + public headers, with
+#     toolchain-version skew explicitly the consumer's risk.
+# The luaw_* reactor glue is excluded (no -DMAKE_REACTOR): embedders drive the
+# VM through lua.h. The exec model is the downstream's link-time choice, absent
+# from the archive by design.
+#
+# AOT composition (LUA_AOT=1): builds the archive with internal symbols
+# linkable, so luaot-generated modules (partial evaluations of lvm.c -- see
+# luaot_header.c's "already exported by liblua.a") can bind against it. The
+# downstream runs ./src/luaot on its own .lua modules, compiles the generated
+# C, and links it with this archive. See doc/embedding.md and examples/embed.
+WASM_AR= llvm-ar
+LUA_A= liblua.a
+LUA_A_O= onelua-lib.o
+LUA_INCDIR= include
+LUA_PUB_HEADERS= src/lua.h src/luaconf.h src/lualib.h src/lauxlib.h src/lua.hpp
+
+ifeq ($(strip $(LUA_AOT)),)
+LUA_A_DEFS= -DMAKE_LIB
+else
+LUA_A_DEFS= -DMAKE_LIB -DLUA_AOT
+endif
+
+liblua.a:
+	$(WASM_CLANGXX) $(WASM_CFLAGS) $(WASM_EXTRA) $(LUA_A_DEFS) \
+	  -c -x c++ src/onelua.c -o $(LUA_A_O)
+	$(WASM_AR) rcs $(LUA_A) $(LUA_A_O)
+	@mkdir -p $(LUA_INCDIR)
+	cp $(LUA_PUB_HEADERS) $(LUA_INCDIR)/
+	@echo "built $(LUA_A) + public headers in $(LUA_INCDIR)/ for wasm32-wasi (LUA_AOT='$(LUA_AOT)')"
+
 # list targets that do not create files (but not all makes understand .PHONY)
-.PHONY: all $(PLATS) clean test install uninstall local none dummy echo pc wasm
+.PHONY: all $(PLATS) clean test install uninstall local none dummy echo pc wasm liblua.a
 
 # (end of Makefile)
