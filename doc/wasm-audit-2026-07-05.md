@@ -68,7 +68,7 @@ load); and suite files `main.lua` (port mode), `gc.lua`, `db.lua`, `calls.lua`,
   first run also supplied the missing Node 24 (V8 13.x, stable exnref) data
   point: the full suite passes there — the detonation is confirmed confined to
   pre-stable-exnref V8.
-- **Plain clang-20 witness** (issue #14) — the standardized-encoding build is
-  witnessed via `zig c++` (clang 20.1.2). Plain `clang++-20` uses the same
-  flags and backend and is expected identical, but has not been independently
-  run; the closing job is `deep-witness.yml` → `clang20-plain` (dispatch).
+- ~~**Plain clang-20 witness** (issue #14)~~ — **done**: `deep-witness.yml` →
+  `clang20-plain` ran green 2026-07-06 (llvm.org apt clang-20, Makefile
+  defaults, full suite under wasmtime and Node 24). The zig recipe remains the
+  documented fallback for hosts without a packaged clang 20.
