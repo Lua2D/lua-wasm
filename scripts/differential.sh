@@ -46,7 +46,7 @@ for mode in aot interp; do
     "$NODE" --liftoff-only --no-warnings ../scripts/wasm-run.mjs "$WASM" \
       ../scripts/aot-suite.lua $mode "$EXCLUDE" \
       > "$tmp/$mode.out" 2> "$tmp/$mode.err" ) \
-    || { echo "differential: $mode run FAILED"; tail -5 "$tmp/$mode.err"; exit 1; }
+    || { echo "differential: $mode run FAILED"; tail -20 "$tmp/$mode.err"; exit 1; }
 done
 
 # Normalizations, each with its reason. The first three differ between
