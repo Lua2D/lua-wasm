@@ -1,13 +1,19 @@
-# Deep witnesses -- heavy or toolchain-proving runs, fired MANUALLY
-# (workflow_dispatch only; nothing here runs on push or PR). Each job is
-# the closing evidence for a tracked issue; authored ahead of its first
-# run, so a job's first green IS the issue's "done".
+# Deep witnesses -- heavy or toolchain-proving runs. Fired two ways:
+# MANUALLY (workflow_dispatch), and on every RELEASE TAG (the release
+# tier of issue #3: all three jobs re-run against the tagged commit).
+# Tags cut by release.yml are created with GITHUB_TOKEN, whose events
+# do not chain-trigger workflows, so release.yml also dispatches this
+# workflow explicitly; the on.push.tags trigger covers hand-pushed tags.
+# Each job is the closing evidence for a tracked issue; authored ahead
+# of its first run, so a job's first green IS the issue's "done".
 #
 #   clang20-plain    -> issue #14 (plain clang-20 witness)
 #   aot-differential -> issue #15 (the monster AOT compile + differential)
 #   benchmarks       -> issue #16 (perf re-measurement, non-gating)
 name: deep-witness
 on:
+  push:
+    tags: ['v*']
   workflow_dispatch:
     inputs:
       job:
@@ -20,15 +26,19 @@ on:
         type: string
         default: "-O2"
 
+# On a tag push, `inputs` is empty: every job's `if` treats that event
+# as "all", and ${{ inputs.aot_opt }} expands to nothing (the Makefile's
+# default -O2 applies).
+
 jobs:
   clang20-plain:
-    if: inputs.job == 'clang20-plain' || inputs.job == 'all'
+    if: github.event_name == 'push' || inputs.job == 'clang20-plain' || inputs.job == 'all'
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 24
+          node-version: '>=24.15 <25'  # 24.0-24.14 reject stable exnref (need --experimental-wasm-exnref); 24.15 turned it on
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
@@ -47,14 +57,14 @@ jobs:
         run: cd tests && node ../scripts/wasm-run.mjs ../lua.wasm -e"_port=true" all.lua
 
   aot-differential:
-    if: inputs.job == 'aot-differential' || inputs.job == 'all'
+    if: github.event_name == 'push' || inputs.job == 'aot-differential' || inputs.job == 'all'
     runs-on: ubuntu-24.04
     timeout-minutes: 360
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 24
+          node-version: '>=24.15 <25'  # 24.0-24.14 reject stable exnref (need --experimental-wasm-exnref); 24.15 turned it on
       - name: llvm.org clang-20 + wasm32 runtime, noble wasi-libc
         run: |
           wget -qO- https://apt.llvm.org/llvm-snapshot.gpg.key | sudo tee /etc/apt/trusted.gpg.d/apt.llvm.org.asc
@@ -77,13 +87,13 @@ jobs:
         run: scripts/differential.sh lua-aot.wasm node ""
 
   benchmarks:
-    if: inputs.job == 'benchmarks' || inputs.job == 'all'
+    if: github.event_name == 'push' || inputs.job == 'benchmarks' || inputs.job == 'all'
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 24
+          node-version: '>=24.15 <25'  # 24.0-24.14 reject stable exnref (need --experimental-wasm-exnref); 24.15 turned it on
       - name: llvm.org clang-20 + wasm32 runtime, noble wasi-libc
         run: |
           wget -qO- https://apt.llvm.org/llvm-snapshot.gpg.key | sudo tee /etc/apt/trusted.gpg.d/apt.llvm.org.asc

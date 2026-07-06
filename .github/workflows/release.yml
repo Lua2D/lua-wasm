@@ -22,7 +22,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 24
+          node-version: '>=24.15 <25'  # 24.0-24.14 reject stable exnref (need --experimental-wasm-exnref); 24.15 turned it on
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
@@ -60,5 +60,14 @@ jobs:
           gh release create "${{ inputs.version }}" \
             --target "${{ github.sha }}" \
             --title "lua-wasi ${{ inputs.version }}" \
-            --notes "Lua 5.4.8 for wasm32-wasi. Standardized wasm-EH encoding (try_table/exnref); runs on Node >= 24, current browsers, and wasmtime. lua.wasm = standalone interpreter; lua-lib.wasm = embeddable reactor (luaw_* interface, see README). Built with zig c++ 0.15.1 (clang 20.1.2); witnesses re-run at cut time by this workflow. Evidence state: doc/wasm-audit-2026-07-05.md at this tag." \
+            --notes "Lua 5.4.8 for wasm32-wasi. Standardized wasm-EH encoding (try_table/exnref); runs on Node >= 24.15 (earlier 24.x needs --experimental-wasm-exnref), current browsers, and wasmtime. lua.wasm = standalone interpreter; lua-lib.wasm = embeddable reactor (luaw_* interface, see README). Built with zig c++ 0.15.1 (clang 20.1.2); witnesses re-run at cut time by this workflow. Evidence state: doc/wasm-audit-2026-07-05.md at this tag." \
             lua.wasm lua-lib.wasm
+      - name: fire the release-tier deep witnesses against the tag
+        # The tag above is created with GITHUB_TOKEN, whose events do not
+        # chain-trigger on.push workflows -- dispatch deep-witness (all
+        # jobs: AOT differential, plain clang-20, benchmark refresh)
+        # explicitly so every release carries the heavy-tier evidence
+        # (issue #3's release tier).
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run deep-witness.yml --ref "${{ inputs.version }}" -f job=all

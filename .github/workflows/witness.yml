@@ -63,7 +63,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 24
+          node-version: '>=24.15 <25'  # 24.0-24.14 reject stable exnref (need --experimental-wasm-exnref); 24.15 turned it on
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
@@ -95,7 +95,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 24
+          node-version: '>=24.15 <25'  # 24.0-24.14 reject stable exnref (need --experimental-wasm-exnref); 24.15 turned it on
       - name: toolchain (zig c++ = clang 20.1.2)
         run: python3 -m pip install 'ziglang==0.15.1'
       - name: build the embed example (link Lua in) and run its witness
@@ -123,7 +123,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 24
+          node-version: '>=24.15 <25'  # 24.0-24.14 reject stable exnref (need --experimental-wasm-exnref); 24.15 turned it on
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
