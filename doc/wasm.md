@@ -109,7 +109,7 @@ playwright-core + a Chromium) and the reactor battery
 The deepest wasm witness is the AOT/interpreter differential: build with
 every suite file AOT-compiled in, then diff the two legs' output
 (`scripts/differential.sh lua-aot.wasm` → expect `differential: AGREED`;
-its documented structural exclusions and their evidence live in that
+its one documented structural exclusion and its evidence live in that
 script's header). CI home: `deep-witness.yml` → `aot-differential`
 (manual dispatch, and automatically on every release tag — the build
 compiles ~1.2M lines of generated C, ~80 min on a standard runner).

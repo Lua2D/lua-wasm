@@ -1,9 +1,8 @@
 # How we work in this repository
 
 This is the working agreement for this repository. Its reader is a coding agent,
-and it is written to be read by people too; the human-facing companion is
-`CONTRIBUTING.md`. Nothing here is specific to this repository — it can be copied
-unchanged into any repository that works this way.
+and it is written to be read by people too. Nothing here is specific to this
+repository — it can be copied unchanged into any repository that works this way.
 
 ## Roles: architect and engineer
 

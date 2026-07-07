@@ -73,11 +73,11 @@ jobs:
           sudo apt-get install -y clang-20 lld-20 libclang-rt-20-dev-wasm32 wasi-libc
       - name: the monster build -- every suite file AOT-compiled in
         # ~1.22M lines of generated C; measured ~15.5 min per 96k-line unit
-        # on the wasm target with -O1 ~= -O2 (the backend dominates, issue
-        # #15) -> sequential worst case ~3h, hence the 360min timeout. The
-        # real fix is parallel per-unit compiles (issue #15 scope); if a
-        # standard runner still doesn't fit, escalate runner class -- do
-        # not silently drop files. (tr: make's for-loop recipe needs a
+        # on the wasm target with -O1 ~= -O2 (the backend dominates) ->
+        # sequential worst case ~3h, hence the 360min timeout. The real
+        # fix is parallel per-unit compiles (issue #33); if a standard
+        # runner still doesn't fit, escalate runner class -- do not
+        # silently drop files. (tr: make's for-loop recipe needs a
         # space-separated list, ls emits newlines.)
         run: >
           make wasm WASM_O=lua-aot.wasm

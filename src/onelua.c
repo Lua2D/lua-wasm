@@ -491,7 +491,7 @@ LUAW_API int luaw_step (void) {
   return status;
 }
 
-#endif /* __wasm__ && MAKE_LIB */
+#endif /* __wasm__ && MAKE_REACTOR */
 
 #if defined(__cplusplus)
 }  /* extern "C" */

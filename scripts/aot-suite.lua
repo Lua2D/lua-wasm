@@ -19,11 +19,10 @@ debug = nil   -- as all.lua does: tests must require debug when needed
 
 -- mode lives in a global, deliberately: adding even one local to this
 -- chunk shifts every stack slot after it, and upstream's gc.lua asserts
--- memory reclamation to within 1KB of a baseline -- tight enough to
--- detect that AOT'd code, under some caller layouts, roots a dead value
--- for one collection longer than the interpreter does (values and
--- results are unaffected; tracked as a known divergence for the luaot
--- maintenance batch). The witness must not perturb what it measures.
+-- memory reclamation to within 1KB of a baseline -- an absolute-memory
+-- razor that incidental stack-layout shifts can trip (it once flagged a
+-- since-resolved AOT accounting divergence; history in differential.sh's
+-- header). The witness must not perturb what it measures.
 MODE, EXCLUDE = ...
 MODE = MODE or "aot"
 EXCLUDE = EXCLUDE or ""

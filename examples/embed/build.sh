@@ -10,7 +10,7 @@
 #   WASM_SYSROOT  sysroot (default /usr; set empty for zig's bundled one)
 #   OUT           output file (default embed.wasm)
 #   RUN           runner (default: node ../../scripts/wasm-run.mjs); needs
-#                 Node >= 24 for stable exnref. Set RUN=: to build only.
+#                 Node >= 24.15 for default-on exnref. Set RUN=: to build only.
 #   WASM_EXTRA    extra flags for the driver. The zig c++ driver needs
 #                 WASM_EXTRA="-Xclang -target-feature -Xclang +exception-handling"
 set -eu
@@ -52,7 +52,7 @@ $WASM_CXX $WASM_EXTRA \
   -o "$OUT"
 echo "built $OUT"
 
-# 4. Run it (a WASI command; Node >= 24). Expect: EMBED WITNESS OK
+# 4. Run it (a WASI command; Node >= 24.15). Expect: EMBED WITNESS OK
 RUN="${RUN:-node $ROOT/scripts/wasm-run.mjs}"
 # shellcheck disable=SC2086
 exec $RUN "$OUT"

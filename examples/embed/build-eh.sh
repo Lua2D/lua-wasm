@@ -19,7 +19,7 @@
 #   ZIG          zig driver command (default: python3 -m ziglang)
 #   ZIGLANG_LIB  zig's lib/ dir (default: located via the ziglang package)
 #   OUT          output artifact (default embed-eh.wasm)
-#   RUN          runner (default: node ../../scripts/wasm-run.mjs; Node>=24).
+#   RUN          runner (default: node ../../scripts/wasm-run.mjs; Node>=24.15).
 #                RUN=: builds only. wasmtime works too:
 #                RUN="python3 ../../scripts/wasmtime-run.py"
 set -eu

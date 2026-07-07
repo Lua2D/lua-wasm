@@ -7,7 +7,7 @@
 #   lua.wasm                  -- make wasm
 #   lua-bench.wasm            -- make wasm WASM_O=lua-bench.wasm WASM_AOT="..."
 #   a native AOT bench binary -- built here
-#   NODE=/path/to/node >= 24  -- wasm host with wasm exception handling
+#   NODE=/path/to/node >= 24.15  -- wasm host with wasm exception handling
 set -e
 
 NODE=${NODE:-node}

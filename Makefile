@@ -115,7 +115,7 @@ pc:
 # Toolchain: clang 20+ with a wasm32-wasi sysroot (doc/wasm.md; zig c++
 # recipe below for hosts without a packaged clang 20). Run under any WASI
 # host with wasm EH support: node scripts/wasm-run.mjs lua.wasm script.lua
-# (Node >= 24), or python3 scripts/wasmtime-run.py lua.wasm script.lua.
+# (Node >= 24.15), or python3 scripts/wasmtime-run.py lua.wasm script.lua.
 #
 # AOT: pass WASM_AOT="path/to/mod.lua ..." to compile Lua modules ahead of
 # time with luaot (built natively on demand) and link them into the same
@@ -140,7 +140,7 @@ WASM_AOT_DIR= wasm-aot
 
 # EH encoding on the wire. 'standard' (default) emits the standardized
 # try_table/exnref instructions -- needs LLVM 20+ to build, and runs on
-# V8 with stable exnref (Node >= 24, current browsers) and on non-V8
+# V8 with default-on exnref (Node >= 24.15, current browsers) and on non-V8
 # runtimes (wasmtime). 'legacy' emits the pre-standard try/catch
 # encoding that clang 18/19 produce -- only V8 engines accept it, and
 # V8 12.x host-crashes on the suite's <close>-in-coroutines patterns
