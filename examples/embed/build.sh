@@ -24,8 +24,11 @@ OUT="${OUT:-embed.wasm}"
 # 1. Host tool: luaot turns Lua into C. Built natively for the build machine.
 make -C "$ROOT/src" guess >/dev/null
 
-# 2. AOT-compile the downstream's Lua module.
-"$ROOT/src/luaot" game.lua -o aot_game.c -m aot_game
+# 2. AOT-compile the downstream's Lua module. -c pins the baked chunkname
+#    (issue #31) to what a runtime load of game.lua would report, so the
+#    AOT'd module's tracebacks match the file's own debug identity -- the
+#    '@' prefix marks it a filename, mirroring the Makefile's WASM_AOT path.
+"$ROOT/src/luaot" game.lua -o aot_game.c -m aot_game -c "@game.lua"
 
 # 3. Link Lua in (the flag contract; see doc/embedding.md):
 #    -DMAKE_LIB           core + libraries, NO luaw_* reactor glue

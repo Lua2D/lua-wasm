@@ -44,11 +44,11 @@ jobs:
     if: github.event_name == 'push' || inputs.job == 'clang20-plain' || inputs.job == 'all'
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
         with:
           node-version: '>=24.15 <25'  # 24.0-24.14 reject stable exnref (need --experimental-wasm-exnref); 24.15 turned it on
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: '3.12'
       - name: llvm.org clang-20 + wasm32 runtime, noble wasi-libc
@@ -70,8 +70,8 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 360
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
         with:
           node-version: '>=24.15 <25'  # 24.0-24.14 reject stable exnref (need --experimental-wasm-exnref); 24.15 turned it on
       - name: llvm.org clang-20 + wasm32 runtime, noble wasi-libc
@@ -93,7 +93,7 @@ jobs:
         # dispatch, because the Makefile's flags stamp treats them as
         # different flag sets and would wipe a shared cache's objects)
         # + everything that determines the generated units.
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: wasm-aot
           key: aot-objs-${{ steps.cc.outputs.v }}-${{ inputs.aot_opt }}-${{ hashFiles('tests/*.lua', 'src/**', 'Makefile') }}
@@ -126,11 +126,11 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 120
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
         with:
           node-version: '>=24.15 <25'  # 24.0-24.14 reject stable exnref (need --experimental-wasm-exnref); 24.15 turned it on
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: '3.12'
       - name: llvm.org clang-${{ inputs.llvm }} + wasm32 runtime, noble wasi-libc
@@ -147,8 +147,8 @@ jobs:
     if: github.event_name == 'push' || inputs.job == 'benchmarks' || inputs.job == 'all'
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
         with:
           node-version: '>=24.15 <25'  # 24.0-24.14 reject stable exnref (need --experimental-wasm-exnref); 24.15 turned it on
       - name: llvm.org clang-20 + wasm32 runtime, noble wasi-libc
@@ -163,7 +163,7 @@ jobs:
         # in RESULTS.md (issue #16). bench-all.sh builds everything it
         # needs via Makefile defaults (clang++-20, installed above).
         run: scripts/bench-all.sh
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         with:
           name: bench-results
           path: experiments/results.csv

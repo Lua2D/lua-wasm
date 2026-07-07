@@ -40,7 +40,7 @@ reg="$tmp/reg.c"
 objs="$reg"
 for spec in $BENCHES; do
   b=${spec%:*}
-  ./src/luaot experiments/$b.lua -o "$tmp/$b.c" -m aot_$b
+  ./src/luaot experiments/$b.lua -o "$tmp/$b.c" -m aot_$b -c "@$b.lua"
   objs="$objs $tmp/$b.c"
 done
 gcc -O2 -DLUA_USE_LINUX -DLUA_AOT -Isrc -o "$tmp/lua-aot" src/onelua.c $objs -lm -ldl -Wl,-E
