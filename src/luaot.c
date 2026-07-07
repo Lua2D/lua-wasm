@@ -201,11 +201,7 @@ int main(int argc, char **argv)
     output_file = fopen(output_filename, "w");
     if (output_file == NULL) { fatal_error(strerror(errno)); }
 
-    #if defined(LUAOT_USE_GOTOS)
     println("#include \"luaot_header.c\"");
-    #elif defined(LUAOT_USE_SWITCHES)
-    println("#include \"trampoline_header.c\"");
-    #endif
     printnl();
     print_functions(proto);
     printnl();
@@ -234,11 +230,7 @@ int main(int argc, char **argv)
         println("\"");
     }
     printnl();
-    #if defined(LUAOT_USE_GOTOS)
     println("#include \"luaot_footer.c\"");
-    #elif defined(LUAOT_USE_SWITCHES)
-    println("#include \"trampoline_footer.c\"");
-    #endif
     if (executable) {
       printnl();
       printnl();
@@ -382,37 +374,6 @@ void PrintString(const TString* ts)
     }
     print("\"");
 }
-
-#if 0
-static
-void PrintType(const Proto* f, int i)
-{
-    const TValue* o=&f->k[i];
-    switch (ttypetag(o)) {
-        case LUA_VNIL:
-            printf("N");
-            break;
-        case LUA_VFALSE:
-        case LUA_VTRUE:
-            printf("B");
-            break;
-        case LUA_VNUMFLT:
-            printf("F");
-            break;
-        case LUA_VNUMINT:
-            printf("I");
-            break;
-        case LUA_VSHRSTR:
-        case LUA_VLNGSTR:
-            printf("S");
-            break;
-        default: /* cannot happen */
-            printf("?%d",ttypetag(o));
-            break;
-    }
-    printf("\t");
-}
-#endif
 
 static
 void PrintConstant(const Proto* f, int i)
@@ -781,23 +742,11 @@ void luaot_PrintOpcodeComment(Proto *f, int pc)
         case OP_EXTRAARG:
             print("%d",ax);
             break;
-#if 0
-        default:
-            print("%d %d %d",a,b,c);
-            print(COMMENT "not handled");
-            break;
-#endif
     }
     print("\n");
 }
 
-#if defined(LUAOT_USE_GOTOS)
 #include "luaot_gotos.c"
-#elif defined(LUAOT_USE_SWITCHES)
-#include "luaot_switches.c"
-#else
-#error "Must define LUAOT_USE_GOTOS or LUAOT_USE_SWITCHES"
-#endif
 
 static
 void create_functions(Proto *p)

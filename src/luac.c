@@ -340,17 +340,6 @@ static void PrintCode(const Proto* f)
  {
   Instruction i=code[pc];
   OpCode o=GET_OPCODE(i);
-#if 0
-  int a=GETARG_A(i);
-  int b=GETARG_B(i);
-  int c=GETARG_C(i);
-  int ax=GETARG_Ax(i);
-  int bx=GETARG_Bx(i);
-  int sb=GETARG_sB(i);
-  int sc=GETARG_sC(i);
-  int sbx=GETARG_sBx(i);
-  int isk=GETARG_k(i);
-#else
 #define a   GETARG_A(i)
 #define b   GETARG_B(i)
 #define c   GETARG_C(i)
@@ -360,7 +349,6 @@ static void PrintCode(const Proto* f)
 #define sc  GETARG_sC(i)
 #define sbx GETARG_sBx(i)
 #define isk GETARG_k(i)
-#endif
   int line=luaG_getfuncline(f,pc);
   printf("\t%d\t",pc+1);
   if (line>0) printf("[%d]\t",line); else printf("[-]\t");
@@ -663,13 +651,16 @@ static void PrintCode(const Proto* f)
    case OP_EXTRAARG:
 	printf("%d",ax);
 	break;
-#if 0
-   default:
-	printf("%d %d %d",a,b,c);
-	printf(COMMENT "not handled");
-	break;
-#endif
   }
+#undef a
+#undef b
+#undef c
+#undef ax
+#undef bx
+#undef sb
+#undef sc
+#undef sbx
+#undef isk
   printf("\n");
  }
 }

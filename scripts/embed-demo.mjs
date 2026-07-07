@@ -32,7 +32,7 @@ function lastError() {
   while (m[end] !== 0) end++;
   return new TextDecoder().decode(m.subarray(p, end));
 }
-function run(code, name) {
+function run(code) {
   const [ptr, len] = pushString(code);
   const status = e.luaw_run(ptr, len, 0);
   e.luaw_free(ptr);

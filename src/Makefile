@@ -46,11 +46,8 @@ LUAC_O=	luac.o
 AOT_T=	luaot
 AOT_O=	luaot.o
 
-AOT2_T=	luaot-trampoline
-AOT2_O=	luaot-trampoline.o
-
-ALL_O= $(BASE_O) $(LUA_O) $(LUAC_O) $(AOT_O) $(AOT2_O)
-ALL_T= $(LUA_A) $(LUA_T) $(LUAC_T) $(AOT_T) $(AOT2_T)
+ALL_O= $(BASE_O) $(LUA_O) $(LUAC_O) $(AOT_O)
+ALL_T= $(LUA_A) $(LUA_T) $(LUAC_T) $(AOT_T)
 ALL_A= $(LUA_A)
 
 # Targets start here.
@@ -74,9 +71,6 @@ $(LUAC_T): $(LUAC_O) $(LUA_A)
 
 $(AOT_T): $(AOT_O) $(LUA_A)
 	$(CC) -o $@ $(LDFLAGS) $(AOT_O) $(LUA_A) $(LIBS)
-
-$(AOT2_T): $(AOT2_O) $(LUA_A)
-	$(CC) -o $@ $(LDFLAGS) $(AOT2_O) $(LUA_A) $(LIBS)
 
 test:
 	./$(LUA_T) -v
@@ -169,11 +163,7 @@ lcode.o:
 
 luaot.o: luaot.c luaot_gotos.c \
  lua.h lauxlib.h ldebug.h lobject.h lopcodes.h lopnames.h lstate.h lundump.h
-	$(CC) $(CFLAGS) -c $< -o $@ -DLUAOT_USE_GOTOS
-
-luaot-trampoline.o: luaot.c luaot_switches.c \
- lua.h lauxlib.h ldebug.h lobject.h lopcodes.h lopnames.h lstate.h lundump.h
-	$(CC) $(CFLAGS) -c $< -o $@ -DLUAOT_USE_SWITCHES
+	$(CC) $(CFLAGS) -c $< -o $@
 
 # DO NOT DELETE
 

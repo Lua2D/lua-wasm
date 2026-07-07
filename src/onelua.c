@@ -409,9 +409,6 @@ LUAW_API int luaw_init (void) {
   luaw_L = luaL_newstate();
   if (luaw_L == NULL) return LUA_ERRMEM;
   luaL_openlibs(luaw_L);
-#if defined(LUA_AOT)
-  luaot_preload(luaw_L);
-#endif
   return 0;
 }
 
