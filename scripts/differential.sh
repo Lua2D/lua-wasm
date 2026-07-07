@@ -50,7 +50,11 @@ set -e
 
 WASM=$1
 NODE=${2:-node}
-EXCLUDE=${3:-literals}
+# ${3-...} (no colon), deliberately: an explicitly passed "" means
+# "exclude nothing" -- only an ABSENT third argument gets the default.
+# With ${3:-...} an empty string silently became the default, so an
+# exclude-nothing run was impossible to request (issue #30).
+EXCLUDE=${3-literals}
 [ -n "$WASM" ] || { echo "usage: $0 <lua.wasm> [node]" >&2; exit 2; }
 # the legs run with tests/ as cwd; a relative artifact path must survive that
 case "$WASM" in /*) ;; *) WASM=$(pwd)/$WASM ;; esac

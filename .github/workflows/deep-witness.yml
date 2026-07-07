@@ -84,7 +84,10 @@ jobs:
           WASM_AOT="$(ls tests/*.lua | grep -v -e all.lua -e suite-prefix-bundle | tr '\n' ' ')"
           WASM_EXTRA="${{ inputs.aot_opt }}"
       - name: the Agreed witness -- AOT vs interpreter, byte-identical output
-        run: scripts/differential.sh lua-aot.wasm node ""
+        # third argument omitted, not "": since #30, an explicit "" means
+        # "exclude nothing"; omission selects the documented default
+        # exclusion (literals).
+        run: scripts/differential.sh lua-aot.wasm node
 
   benchmarks:
     if: github.event_name == 'push' || inputs.job == 'benchmarks' || inputs.job == 'all'

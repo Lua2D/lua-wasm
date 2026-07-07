@@ -46,11 +46,23 @@ done
 gcc -O2 -DLUA_USE_LINUX -DLUA_AOT -Isrc -o "$tmp/lua-aot" src/onelua.c $objs -lm -ldl -Wl,-E
 
 best() { # best-of-3 seconds from the CSV a bench run prints
-  min=999
+  # A cell whose three runs ALL fail must kill the script loudly, never
+  # write a plausible-looking sentinel into results.csv (issue #29: the
+  # old min=999 seed did exactly that, and set -e could not fire from a
+  # non-terminal AND-list position inside a command substitution). min
+  # starts empty; only a parsed time sets it. The exit propagates: the
+  # caller is a plain assignment, so set -e sees the substitution fail.
+  min=
   for _ in 1 2 3; do
-    t=$("$@" 2>/dev/null | cut -d, -f4)
-    [ -n "$t" ] && awk "BEGIN{exit !($t<$min)}" && min=$t
+    t=$("$@" 2>/dev/null | cut -d, -f4) || true
+    if [ -n "$t" ]; then
+      if [ -z "$min" ] || awk "BEGIN{exit !($t<$min)}"; then min=$t; fi
+    fi
   done
+  if [ -z "$min" ]; then
+    echo "bench-all: cell '$*' produced no successful runs (3/3 failed)" >&2
+    exit 1
+  fi
   echo "$min"
 }
 

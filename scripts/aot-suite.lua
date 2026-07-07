@@ -28,21 +28,41 @@ MODE = MODE or "aot"
 EXCLUDE = EXCLUDE or ""
 assert(MODE == "aot" or MODE == "interp", "mode must be 'aot' or 'interp'")
 
-local aot_count, interp_count = 0, 0
+-- Exclusion matching is against DELIMITED entries of the comma-separated
+-- list, not a plain substring: a bare find() made "gengc" also exclude
+-- "gc" and "verybig" also exclude "big", silently -- the collided file
+-- ran interpreted in both legs and the differential stayed vacuously
+-- AGREED for it (issue #30). Globals, not chunk locals, for the razor
+-- reason MODE's comment gives.
+function EXCLUDED (n)
+  return ("," .. EXCLUDE .. ","):find("," .. n:gsub('%.lua$', '') .. ",",
+                                      1, true) ~= nil
+end
+PROBED = {}   -- every file the driver ran, for the identity probe below
+
+local aot_count, interp_count, excluded_count = 0, 0, 0
 local function run (n)
   print("\n***** FILE '" .. n .. "' *****")
+  PROBED[#PROBED + 1] = n
   local key = 'aot_' .. n:gsub('%.lua$', ''):gsub('[%.%-]', '_')
-  local excluded = EXCLUDE:find(n:gsub('%.lua$', ''), 1, true) ~= nil
+  local excluded = EXCLUDED(n)
   local open = (MODE == "aot" and not excluded) and package.preload[key] or nil
   if open then
     aot_count = aot_count + 1
     return open()
   else
     if MODE == "aot" then
-      -- not compiled into this artifact (e.g. the build machine could
-      -- not afford the wasm backend's memory on that file); say so --
-      -- never silently
-      io.stderr:write("interpreted fallback: ", n, "\n")
+      if excluded then
+        -- excluded by request: named on stderr so a leg cannot lose
+        -- coverage invisibly (issue #30)
+        excluded_count = excluded_count + 1
+        io.stderr:write("excluded (interpreted in both legs): ", n, "\n")
+      else
+        -- not compiled into this artifact (e.g. the build machine could
+        -- not afford the wasm backend's memory on that file); say so --
+        -- never silently
+        io.stderr:write("interpreted fallback: ", n, "\n")
+      end
     end
     interp_count = interp_count + 1
     return assert(loadfile(n))()
@@ -69,7 +89,8 @@ do
   -- luaot_footer.c), so the wrapped C function can host those yields and
   -- the AOT leg runs the compiled chunk like any other file.
   print("\n***** FILE 'big.lua' *****")
-  local excluded = EXCLUDE:find('big', 1, true) ~= nil
+  PROBED[#PROBED + 1] = 'big.lua'
+  local excluded = EXCLUDED('big.lua')
   local open = (MODE == "aot" and not excluded) and package.preload.aot_big or nil
   local f
   if open then
@@ -77,7 +98,12 @@ do
     f = coroutine.wrap(open)
   else
     if MODE == "aot" then
-      io.stderr:write("interpreted fallback: big.lua\n")
+      if excluded then
+        excluded_count = excluded_count + 1
+        io.stderr:write("excluded (interpreted in both legs): big.lua\n")
+      else
+        io.stderr:write("interpreted fallback: big.lua\n")
+      end
     end
     interp_count = interp_count + 1
     f = coroutine.wrap(assert(loadfile('big.lua')))
@@ -103,6 +129,41 @@ assert(run('verybig.lua') == 10); collectgarbage()
 run('files.lua')
 
 assert(debug == nil)
-io.stderr:write(string.format("mode %s: %d ahead-of-time, %d interpreted\n",
-                              MODE, aot_count, interp_count))
+
+-- The identity witness (issue #31): every chunk must report the same
+-- debug identity (short_src) whether it entered the artifact through
+-- luaot or through loadfile. luaot used to bake the build-time input
+-- path ("tests/gc.lua") while the runtime leg loads "gc.lua" -- a
+-- divergence no suite file happened to print. This probe surfaces it
+-- on STDOUT, where the differential's diff enforces it between legs:
+-- a call hook captures the chunk's main-body short_src at entry, then
+-- aborts the call before the body runs (zero side effects, so files
+-- can safely be "re-entered" after the suite; big.lua's yields never
+-- happen). It runs after all files, so gc.lua's absolute-memory razor
+-- is long past; new names are globals per MODE's comment above.
+IDENTITY_HOOK = nil  -- forward declaration, keeps the closure a global
+do
+  local dbg = require'debug'
+  for i = 1, #PROBED do
+    local n = PROBED[i]
+    local key = 'aot_' .. n:gsub('%.lua$', ''):gsub('[%.%-]', '_')
+    local f = (MODE == "aot" and not EXCLUDED(n)) and package.preload[key]
+              or assert(loadfile(n))
+    local id
+    dbg.sethook(function ()
+      local info = dbg.getinfo(2, "S")
+      if info.what == "main" then
+        id = info.short_src
+        dbg.sethook()
+        error("identity probe: abort before the chunk body runs")
+      end
+    end, "c")
+    pcall(f)
+    dbg.sethook()
+    print(string.format("chunk identity %s: %s", n, tostring(id)))
+  end
+end
+
+io.stderr:write(string.format("mode %s: %d ahead-of-time, %d interpreted (%d excluded by request)\n",
+                              MODE, aot_count, interp_count, excluded_count))
 print('suite: final OK !!!')

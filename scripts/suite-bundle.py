@@ -48,9 +48,17 @@ for f in FILES:
     with open(f"tests/{f}", "rb") as fh:
         data = fh.read()
     if f == "gc.lua":
-        # bundling deviation (see header): absolute-memory tolerance
-        data = data.replace(b'assert(collectgarbage("count") <= m + 1)',
-                            b'assert(collectgarbage("count") <= m + 3)')
+        # bundling deviation (see header): absolute-memory tolerance.
+        # The replacement MUST take effect: if an upstream Lua bump
+        # reflows this line, a silent no-op would ship the razor assert
+        # into the bundle and fail mysteriously at runtime (issue #30).
+        widened = data.replace(b'assert(collectgarbage("count") <= m + 1)',
+                               b'assert(collectgarbage("count") <= m + 3)')
+        if widened == data:
+            sys.exit("suite-bundle.py: gc.lua tolerance pattern not found; "
+                     "upstream reflowed the assert -- update the pattern "
+                     "(and re-check the widening is still needed)")
+        data = widened
     parts.append(f'  ["{f}"] = {lua_quote(data)},')
 parts.append("}")
 parts.append("""
