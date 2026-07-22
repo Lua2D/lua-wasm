@@ -119,6 +119,15 @@ jobs:
 
   browser:
     runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false               # one engine's result must not cancel the others
+      matrix:
+        engine: [chromium, firefox, webkit]
+    # All three browser engines are gating. The suite-prefix bundle (the wasm-EH
+    # detonation sequence) runs to SUITE-PREFIX PASS on Chromium (V8), Firefox
+    # (SpiderMonkey), and WebKit (JSC family) -- first witnessed 2026-07-22 with
+    # Firefox 151 and WebKit 26.5 (#42). The driver refuses to pass unless the
+    # page actually ran on the requested engine (three guards).
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-node@v6
@@ -134,12 +143,12 @@ jobs:
           make wasm
           WASM_CLANGXX="python3 -m ziglang c++" WASM_SYSROOT=
           WASM_EXTRA="-Xclang -target-feature -Xclang +exception-handling"
-      - name: chromium
-        run: npm i --no-save playwright@1.61.1 && npx playwright install --with-deps chromium
-      - name: suite-prefix bundle in a real Chromium (V8 as shipped)
+      - name: install ${{ matrix.engine }}
+        run: npm i --no-save playwright@1.61.1 && npx playwright install --with-deps ${{ matrix.engine }}
+      - name: suite-prefix bundle in a real ${{ matrix.engine }}
         run: >
           python3 scripts/suite-bundle.py
-          && node scripts/browser-witness.mjs lua.wasm tests/suite-prefix-bundle.lua
+          && node scripts/browser-witness.mjs lua.wasm tests/suite-prefix-bundle.lua --engine ${{ matrix.engine }}
 
   provenance:
     runs-on: ubuntu-24.04

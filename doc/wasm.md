@@ -101,10 +101,13 @@ python3 ../scripts/wasmtime-run.py ../lua.wasm -e"_port=true" all.lua
 ```
 
 Two more witnesses ride the same artifacts, both CI-enforced: the browser leg
-(`node scripts/browser-witness.mjs lua.wasm tests/suite-prefix-bundle.lua` —
+(`node scripts/browser-witness.mjs lua.wasm tests/suite-prefix-bundle.lua --engine <chromium|firefox|webkit>` —
 regenerate the bundle first with `python3 scripts/suite-bundle.py`; needs
-playwright-core + a Chromium) and the reactor battery
-(`node scripts/reactor-stress.mjs lua-lib.wasm`).
+playwright-core + the requested browser) and the reactor battery
+(`node scripts/reactor-stress.mjs lua-lib.wasm`). `--engine` is required and
+the driver refuses to report a pass unless the page truly ran on that engine;
+CI runs all three, with Chromium (V8) gating and Firefox/WebKit non-gating
+until their wasm-EH support is confirmed (#42).
 
 The deepest wasm witness is the AOT/interpreter differential: build with
 every suite file AOT-compiled in, then diff the two legs' output
