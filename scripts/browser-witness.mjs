@@ -14,10 +14,12 @@
 //   1. no fallback   -- a browser that will not launch fails the witness; it is
 //                       never quietly swapped for a different engine.
 //   2. launcher type -- Playwright's own browser type must equal --engine.
-//   3. runtime probe -- the page fingerprints its real engine (V8 exposes
-//                       Error.captureStackTrace; SpiderMonkey exposes
-//                       InternalError; WebKit is AppleWebKit without Chrome) and
-//                       must match --engine, else the witness fails.
+//   3. runtime probe -- the page fingerprints its real engine from the
+//                       user-agent (Firefox/, Chrome/, or AppleWebKit without a
+//                       Chrome token) and must match --engine, else the witness
+//                       fails. (Capability probes such as Error.captureStackTrace
+//                       drift across engine versions -- it is no longer V8-only --
+//                       so the UA is the stable signal; guard 2 is authoritative.)
 //
 // Requires playwright-core resolvable from the invoking directory and the
 // requested browser installed (npx playwright install <engine>). An installed
@@ -107,12 +109,15 @@ try {
                                null, { timeout: 120_000 });
     // GUARD 3: fingerprint the ACTUAL engine from inside the page.
     const r = await page.evaluate(() => {
-      const hasV8 = typeof Error.captureStackTrace === 'function';   // V8-only
-      const isSM  = typeof InternalError === 'function';             // SpiderMonkey-only
+      // UA-token fingerprint, checked in this order: Firefox has "Firefox/";
+      // Chromium has "Chrome/" (atop AppleWebKit/537.36); WebKit/Safari has
+      // "AppleWebKit/" with no Chrome token. Order matters -- Chromium also
+      // reports AppleWebKit, so it must be tested before the bare WebKit case.
       const ua = navigator.userAgent;
-      const detected = hasV8 ? 'chromium'
-        : (isSM || /Firefox/.test(ua)) ? 'firefox'
-        : (/AppleWebKit/.test(ua) && !/Chrome/.test(ua)) ? 'webkit' : 'unknown';
+      const detected = /Firefox\//.test(ua)          ? 'firefox'
+        : /(Chrome|Chromium|Edg)\//.test(ua)         ? 'chromium'
+        : /AppleWebKit\//.test(ua)                   ? 'webkit'
+        : 'unknown';
       return { exitCode: window.__witness.exitCode, transcript: window.__witness.transcript, detected, ua };
     });
     console.log(r.transcript.split('\n').slice(-8).join('\n'));
