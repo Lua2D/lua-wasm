@@ -1,5 +1,5 @@
 # Makefile for building Lua
-# See ../doc/readme.html for installation and customization instructions.
+# See ../README.md for installation and customization instructions.
 
 # == CHANGE THE SETTINGS BELOW TO SUIT YOUR ENVIRONMENT =======================
 
@@ -98,7 +98,7 @@ ALL= all
 help:
 	@echo "Do 'make PLATFORM' where PLATFORM is one of these:"
 	@echo "   $(PLATS)"
-	@echo "See doc/readme.html for complete instructions."
+	@echo "See README.md for complete instructions."
 
 guess:
 	@echo Guessing `$(UNAME)`

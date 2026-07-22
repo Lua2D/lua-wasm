@@ -11,10 +11,13 @@ Updating the code
    the files are upstream's own and are left untouched.
 1. Back up the luaot.c, luaot_header.c and luaot_footer.c
 2. Replace the src folder with a clean copy of Lua.
-3. Reapply the modifications to the Makefile and the interpreter
-   - These are described in the paper
-   - I put some ".patch" files in the "script" folder.
-     I don't guarantee that they will apply cleanly on a future version; may require manual tweaks.
+3. Reapply the modifications to the Makefile and the interpreter.
+   - The authoritative set is enforced by scripts/verify-stock.sh, which on
+     every CI run diffs the vendored core against stock Lua and asserts that
+     exactly five source files differ: lobject.h, lfunc.c, lvm.c, luaconf.h,
+     and luac.c (plus the luaot targets in src/Makefile). Diff those files
+     against the clean copy from step 2 to see each change.
+   - The AOT rationale for the interpreter changes is described in the paper.
 4. Update the luaot files
    - In the luaot.c, update the parts copied from luac.c.
      The most common source of change is if Lua introduces a new opcode, or changes an existing one.

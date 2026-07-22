@@ -17,10 +17,11 @@ make wasm WASM_O=lua-bench.wasm \
 scripts/bench-all.sh              # runs the full matrix, best-of-3, -> experiments/results.csv
 ```
 
-The committed `experiments/results.csv` is the historical prior-toolchain
-snapshot (the five numeric benches); regenerating it on the current
-toolchain adds the three game-shaped benches (#10) that the speedup table
-below already reports.
+`experiments/results.csv` is a generated artifact, not committed:
+`scripts/bench-all.sh` writes it, and CI's `benchmarks` job (below)
+regenerates and uploads it. The tables in this file are the record — they
+cover the current toolchain, the prior-toolchain snapshot, and the three
+game-shaped benches (#10) that a plain five-bench run omits.
 
 Each cell is the best of three runs (CPU time via `os.clock`, GC settled
 first, benchmark output suppressed). CI re-runs this via

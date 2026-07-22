@@ -1,5 +1,5 @@
 # Makefile for installing Lua
-# See doc/readme.html for installation and customization instructions.
+# See README.md for installation and customization instructions.
 
 # == CHANGE THE SETTINGS BELOW TO SUIT YOUR ENVIRONMENT =======================
 
@@ -76,7 +76,7 @@ local:
 none:
 	@echo "Please do 'make PLATFORM' where PLATFORM is one of these:"
 	@echo "   $(PLATS)"
-	@echo "See doc/readme.html for complete instructions."
+	@echo "See README.md for complete instructions."
 
 # make may get confused with test/ and install/
 dummy:

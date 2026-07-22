@@ -588,7 +588,7 @@ void create_function(Proto *f)
                 println("    }");
                 println("    /* 5.4.8: luaD_pretailcall handles __call and C functions itself */");
                 println("    if ((n = luaD_pretailcall(L, ci, ra, b, delta)) < 0)  /* Lua function? */");
-                println("      return ci;  /* the trampoline re-dispatches the callee */");
+                println("      return ci;  /* the driver loop re-dispatches the callee */");
                 println("    else {  /* C function */");
                 println("      ci->func.p -= delta;  /* restore 'func' (if vararg) */");
                 println("      luaD_poscall(L, ci, n);  /* finish caller */");
