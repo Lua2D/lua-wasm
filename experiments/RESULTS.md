@@ -103,7 +103,7 @@ churn spend their time in `luaH_get`/`luaH_set`, the allocator, and the
 collector — costs AOT does not touch; removing bytecode dispatch leaves
 the bill nearly unchanged (stringbuild lands below parity in both runs:
 the generated C pays its code-size and call overhead without a loop to
-win back). Any headline speedup for lua-wasi's AOT therefore belongs to
+win back). Any headline speedup for lua.wasm's AOT therefore belongs to
 numeric loops *only*; code shaped like game logic should expect ~1×,
 and the `WASM_AOT` hot-list should be chosen with that in mind —
 compile in the numeric kernels, not the entity systems. Profiling

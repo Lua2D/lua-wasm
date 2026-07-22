@@ -1,7 +1,7 @@
 -- Closure-churn benchmark: the event-handler / callback shape.
 -- Every "frame" creates short-lived closures (handlers capturing
 -- locals), registers them, fires them once, and drops them; a slice
--- runs as coroutine bodies (the resident-program shape lua-wasi's
+-- runs as coroutine bodies (the resident-program shape lua.wasm's
 -- reactor promotes). Allocation and collection of upvalues, closures,
 -- and coroutines dominate; bytecode dispatch does not (issue #10).
 --

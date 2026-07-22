@@ -1,4 +1,4 @@
-# Contributing to lua-wasi
+# Contributing to lua.wasm
 
 This is the human-facing companion to [`AGENTS.md`](AGENTS.md), the working
 agreement that governs how work is planned, done, reviewed, and integrated
