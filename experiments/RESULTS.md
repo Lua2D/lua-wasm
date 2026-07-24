@@ -83,9 +83,18 @@ run 28821395909 and 2026-07-07 run 28832410071; both shown, patterns only):
 
 ## What the numbers say
 
-**AOT in wasm beats the interpreter in wasm — the thing this project is
-for — and the encoding migration did not change that.** Speedup of
-`wasm interp / wasm AOT`, current toolchain (range over the two runs):
+**On these numeric kernels, on this toolchain (Node 24 / V8 13.6), AOT in
+wasm beat the interpreter, and the encoding migration did not change
+that.** Speedup of `wasm interp / wasm AOT`, current toolchain (range over
+the two runs):
+
+> **Update (2026-07-24): this does not generalize, and AOT is being
+> retired.** A cross-engine measurement of realistic data-plane workloads
+> (see *Data-plane / edge-compute kernels*, below) found the wasm payoff
+> marginal on V8/JSC and a net *loss* on SpiderMonkey. With the game-shaped
+> set already at ~1×, only textbook numeric loops — which no known consumer
+> runs — clearly win in wasm. That is the evidence behind the AOT sunset:
+> [`../doc/aot-sunset-2026-07-24.md`](../doc/aot-sunset-2026-07-24.md).
 
 | benchmark | AOT-in-wasm speedup |
 |---|--:|
@@ -133,3 +142,48 @@ are it.
 interp / native AOT on the current toolchain is 1.7× (nbody) to 2.6×
 (mandelbrot, fannkuch) — consistent with the research paper's
 measurement and with the prior run's shape.
+
+## Data-plane / edge-compute kernels (2026-07-24)
+
+The numeric set is AOT's best case and the game-shaped set its worst; the
+open question was where *realistic* embedder work lands. Three kernels
+answer it: `dataplane` (columnar filtered aggregate + an 8-way GROUP BY, a
+compute-in-engine database stand-in), `codec` (FNV-1a hash + LEB128 varint
+decode), `dsp` (fixed-point FIR / box-blur). Buffers are integer arrays so
+the hot loop is VM arithmetic, not per-element C library calls.
+
+Native (interp vs AOT, `bench.lua`, best-of-3, seconds):
+
+| kernel | native interp | native AOT | speedup |
+|---|--:|--:|--:|
+| dataplane | 0.983 | 0.609 | 1.61× |
+| codec | 2.206 | 0.683 | 3.23× |
+| dsp | 1.700 | 0.701 | 2.43× |
+
+Natively all three win — they are arithmetic-bound. **In wasm the win
+collapses, and inverts on Firefox.** Measured through
+`scripts/browser/bench-page.html` (one module: the interpreted leg loads
+each kernel's source, the AOT leg calls `aot_<name>`; wall-clock around a
+fresh `_start`, best-of-3), across four engines, as `interp/AOT` speedup:
+
+| engine | dataplane | codec | dsp |
+|---|--:|--:|--:|
+| Chrome / V8 | 1.16× | 1.15× | 1.08× |
+| Safari / JSC | 1.18× | 1.26× | 1.12× |
+| Firefox / SpiderMonkey | 0.89× | 0.81× | 0.92× |
+| headless Chromium 141 | 1.19× | 1.13× | 1.20× |
+
+The interpreter is steady across all four engines; it is AOT that swings
+from +26% to −19%. On SpiderMonkey the generated giant functions run
+*below* the interpreter — the baseline-tier failure mode named above — and
+Firefox is a gating engine in the witness matrix.
+
+Calibration (an unresolved caveat, not a result): the same harness
+reproduces fannkuch (~1×) but reports mandelbrot at 1.08× on current
+Chromium 141, where the numeric table above recorded 2.63–3.34× on Node 24
+/ V8 13.6. The likeliest cause is a newer V8 optimizing the interpreter
+dispatch loop better; it was not reproduced under Node ≥ 24.15 (the
+authoring box had only the crashing Node 22). It does not change the
+conclusion — realistic workloads do not reach the region AOT helps — which
+is the evidence behind the AOT sunset
+([`../doc/aot-sunset-2026-07-24.md`](../doc/aot-sunset-2026-07-24.md)).
