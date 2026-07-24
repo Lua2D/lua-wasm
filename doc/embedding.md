@@ -10,9 +10,9 @@
    the shape [love-wasm](https://github.com/lua2d) uses, and the one this file
    documents (issue #11).
 
-This is the contract for shape 2: the flags, the two consumption paths, the
-exception-handling choice, and how AOT modules compose. The worked, CI-witnessed
-example is [`examples/embed/`](../examples/embed/).
+This is the contract for shape 2: the flags, the two consumption paths, and the
+exception-handling choice. The worked, CI-witnessed example is
+[`examples/embed/`](../examples/embed/).
 
 ## Two paths, one contract
 
@@ -29,7 +29,6 @@ toolchain-version skew explicitly **the consumer's risk**:
 
 ```bash
 make liblua.a          # -> liblua.a + include/{lua,luaconf,lualib,lauxlib}.h + lua.hpp
-make liblua.a LUA_AOT=1 # AOT-capable archive (see "AOT composition" below)
 ```
 
 Override `WASM_CLANGXX` / `WASM_SYSROOT` / `WASM_AR` as for the `wasm` target
@@ -92,36 +91,9 @@ objects, seconds to build, producing `libcxxabi-eh.a`. Typed catch sites need
 provides, so a program with typed catches **cannot** silently fall back to the
 shim — the link fails loudly (witnessed).
 
-## AOT composition
-
-You can AOT-compile your own Lua modules into your artifact. AOT-generated code
-is a partial evaluation of the Lua VM (`luaot_header.c` re-includes `lvm.c`), so
-it binds against the core's internal symbols — which means the core must be
-built with **`-DLUA_AOT`** (internal symbols kept linkable) for the module to
-link. That is the only difference from a plain embed; source-drop with
-`-DLUA_AOT`, or `make liblua.a LUA_AOT=1`, gives it to you.
-
-The steps (worked end to end in `examples/embed/`):
-
-1. Build the host tool once: `make -C src guess` → `src/luaot`.
-2. AOT-compile each module: `src/luaot mymod.lua -o mymod.c -m aot_mymod`.
-   The generated unit exports `int luaopen_aot_mymod(lua_State *L)`.
-   Pass `-c "@mymod.lua"` to pin the chunkname baked into the module —
-   without it, error messages and tracebacks from the AOT'd chunk cite
-   the *build-machine* input path (`@` + the path exactly as you passed
-   it), which leaks your layout and differs from what a runtime
-   `loadfile` of the same file would report. Pin it to whatever your
-   runtime load path would produce (the repo's own build pins `@` +
-   basename).
-3. Compile `mymod.c` (as C) alongside `onelua.c -DMAKE_LIB -DLUA_AOT` (as C++),
-   or link it with `liblua.a` built `LUA_AOT=1`.
-4. Register each module under `package.preload` from your C, then `require` it —
-   the same wiring the whole-artifact build's generated registry does, shown in
-   `examples/embed/embed.c`.
-
 ## Status
 
-- **Source drop + AOT composition + Lua-error-across-the-boundary** —
+- **Source drop + Lua-error-across-the-boundary** —
   CI-witnessed by the `embed` job (`examples/embed/`), and witnessed natively
   before landing.
 - **`liblua.a` convenience archive** — built by the Makefile target; the wasm

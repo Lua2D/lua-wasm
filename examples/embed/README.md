@@ -6,20 +6,19 @@ links the Lua core **into its own** wasm32-wasi module and drives it through
 
 It proves the two guarantees the embed contract must hold:
 
-1. **AOT composition** — `game.lua` is AOT-compiled by `src/luaot` and linked
-   in; `embed.c` requires it and calls `game.add(2,3)`, so AOT-generated code
-   binds correctly against the embedded core.
+1. **Driving embedded Lua** — `embed.c` loads a small stand-in module through
+   the linked-in core and calls `game.add(2,3)`, so the downstream drives Lua
+   through nothing but the public `lua.h` API.
 2. **Error unwinding across the boundary** — `game.boom()` raises a Lua
-   `error()` inside that AOT-compiled module; `embed.c` catches it as a
-   `lua_pcall` status with the message intact. In the wasm target this exercises
-   the wasm-EH machinery.
+   `error()` inside that module; `embed.c` catches it as a `lua_pcall` status
+   with the message intact. In the wasm target this exercises the wasm-EH
+   machinery.
 
 ## Files
 
 | file | role |
 | - | - |
-| `game.lua` | a stand-in downstream module, AOT-compiled into the artifact |
-| `embed.c` | the downstream — plain C, public API only, no `luaw_*` reactor glue |
+| `embed.c` | the downstream — plain C, public API only, no `luaw_*` reactor glue (the stand-in module is an inline Lua string) |
 | `build.sh` | source-drop build under the flag contract, then runs the witness |
 | `embed-eh.cpp` | the **external-EH** witness — a C++ downstream catching its own *typed* exception, with Lua's shim suppressed |
 | `build-eh.sh` | builds a real wasm-EH libc++abi from zig's bundled LLVM sources, then the external-EH witness |

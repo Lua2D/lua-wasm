@@ -545,12 +545,6 @@ typedef struct AbsLineInfo {
 } AbsLineInfo;
 
 /*
-** AOT implementation
-*/
-typedef struct CallInfo *(*AotCompiledFunction) (lua_State *L, struct CallInfo *ci);
-
-
-/*
 ** Function Prototypes
 */
 typedef struct Proto {
@@ -574,7 +568,6 @@ typedef struct Proto {
   ls_byte *lineinfo;  /* information about source lines (debug information) */
   AbsLineInfo *abslineinfo;  /* idem */
   LocVar *locvars;  /* information about local variables (debug information) */
-  AotCompiledFunction aot_implementation;
   TString  *source;  /* used for debug information */
   GCObject *gclist;
 } Proto;

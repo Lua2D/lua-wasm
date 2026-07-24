@@ -7,10 +7,10 @@ contract — where the two could ever disagree, AGENTS.md wins.
 
 ## Build
 
-Native (interpreter, compiler, `luaot`):
+Native (interpreter and compiler):
 
 ```bash
-make guess                 # -> src/lua, src/luac, src/luaot
+make guess                 # -> src/lua, src/luac
 make lua-debug             # -> lua-debug, the ltests-instrumented witness build
 ```
 
@@ -21,7 +21,6 @@ header):
 
 ```bash
 make wasm                                 # -> lua.wasm
-make wasm WASM_AOT="game.lua util.lua"    # -> lua.wasm + those modules AOT-compiled in
 ```
 
 Running the artifact needs a WASI host with wasm exception handling:
@@ -41,21 +40,13 @@ cd tests && : | ../lua-debug all.lua          # expect 'final OK !!!', zero 'tes
 # the wasm artifact, both engines
 cd tests && node ../scripts/wasm-run.mjs ../lua.wasm -e"_port=true" all.lua
 cd tests && python3 ../scripts/wasmtime-run.py ../lua.wasm -e"_port=true" all.lua
-
-# the AOT/interpreter differential ("AGREED" or it failed) -- heavy:
-# builds every suite file AOT'd into one artifact first
-make wasm WASM_O=lua-aot.wasm WASM_AOT="<tests/*.lua except all.lua and the bundle>"
-scripts/differential.sh lua-aot.wasm
-
-# the benchmark matrix (native/wasm x interp/AOT) -> experiments/results.csv
-scripts/bench-all.sh
 ```
 
 CI runs these for you: [`witness.yml`](.github/workflows/witness.yml) on every
 pull request and on push to `main` (suite on native + two wasm engines +
 Chromium, the embed witnesses, provenance), [`deep-witness.yml`](.github/workflows/deep-witness.yml)
-on demand and on every release tag (the differential, plain clang-20,
-benchmarks). A red witness blocks the merge.
+on demand and on every release tag (plain clang-20). A red witness blocks
+the merge.
 
 ## How work flows
 

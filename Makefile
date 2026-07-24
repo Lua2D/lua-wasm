@@ -116,13 +116,6 @@ pc:
 # recipe below for hosts without a packaged clang 20). Run under any WASI
 # host with wasm EH support: node scripts/wasm-run.mjs lua.wasm script.lua
 # (Node >= 24.15), or python3 scripts/wasmtime-run.py lua.wasm script.lua.
-#
-# AOT: pass WASM_AOT="path/to/mod.lua ..." to compile Lua modules ahead of
-# time with luaot (built natively on demand) and link them into the same
-# artifact. Each module lands in package.preload as "aot_<name>", so
-# require("aot_<name>") runs it at AOT speed. luaot-generated units are
-# partial evaluations of lvm.c and are inherently their own translation
-# units; the build stays one compiler invocation, one artifact.
 
 # WASM_CLANGXX / WASM_SYSROOT are override points: point them at a custom
 # clang or a self-built wasi-libc sysroot on the make command line, e.g.
@@ -135,13 +128,6 @@ WASM_CLANGXX= clang++-20
 WASM_SYSROOT= /usr
 WASM_STACK= 8388608
 WASM_O= lua.wasm
-WASM_AOT=
-WASM_AOT_DIR= wasm-aot
-# Parallelism for the per-module AOT compiles (issue #33): the generated
-# units are independent translation units, and the wasm backend takes
-# ~15 min on the largest of them -- the all-32 build is ~3 h sequential,
-# under an hour fanned out on a 4-core runner.
-WASM_JOBS= $(shell nproc 2>/dev/null || echo 2)
 
 # EH encoding on the wire. 'standard' (default) emits the standardized
 # try_table/exnref instructions -- needs LLVM 20+ to build, and runs on
@@ -222,10 +208,9 @@ lua-debug:
 
 # The embeddable artifact: a wasm reactor (library, not command) whose
 # host interface is WASI plus the luaw_* exports defined in onelua.c.
-# Same WASM_AOT knob as the 'wasm' target. The mode flags live in
-# WASM_MODE (not WASM_EXTRA) so a command-line WASM_EXTRA -- which
-# overrides target-specific values -- cannot silently strip the
-# reactor's -DMAKE_LIB.
+# The mode flags live in WASM_MODE (not WASM_EXTRA) so a command-line
+# WASM_EXTRA -- which overrides target-specific values -- cannot silently
+# strip the reactor's -DMAKE_LIB.
 WASM_LIB_O= lua-lib.wasm
 WASM_MODE=
 
@@ -234,65 +219,7 @@ wasm-lib: WASM_O= $(WASM_LIB_O)
 wasm-lib: wasm
 
 wasm:
-ifeq ($(strip $(WASM_AOT)),)
 	$(WASM_CLANGXX) $(WASM_FLAGS) $(WASM_MODE) $(WASM_EXTRA) -o $(WASM_O) -x c++ src/onelua.c $(WASM_EH_LIBS)
-else
-	@test -x src/luaot || $(MAKE) -C src guess
-	@mkdir -p $(WASM_AOT_DIR)
-	@# $(WASM_AOT_DIR) persists across runs so per-module objects can be
-	@# reused (issue #33). Reuse is only sound under identical compile
-	@# flags: stamp them and wipe the directory's products when they
-	@# change. (A compiler-version change with unchanged flags is the CI
-	@# cache key's job -- see deep-witness.yml's aot-differential job.)
-	echo '$(WASM_CFLAGS) $(WASM_MODE) $(WASM_EXTRA) -DLUA_AOT' > $(WASM_AOT_DIR)/flags.new; \
-	cmp -s $(WASM_AOT_DIR)/flags.new $(WASM_AOT_DIR)/flags \
-	  || rm -f $(WASM_AOT_DIR)/*.c $(WASM_AOT_DIR)/*.o; \
-	mv $(WASM_AOT_DIR)/flags.new $(WASM_AOT_DIR)/flags
-	@# Regenerate every unit (luaot is cheap), but replace a unit's .c
-	@# only when its content changed, so the .o staleness check below is
-	@# by content, not by checkout timestamp.
-	set -e; \
-	names=""; \
-	for f in $(WASM_AOT); do \
-	  n=$$(basename $$f .lua | tr '.-' '__'); \
-	  ./src/luaot $$f -o $(WASM_AOT_DIR)/$$n.c.new -m aot_$$n -c "@$${f##*/}"; \
-	  if cmp -s $(WASM_AOT_DIR)/$$n.c.new $(WASM_AOT_DIR)/$$n.c; \
-	  then rm $(WASM_AOT_DIR)/$$n.c.new; \
-	  else mv $(WASM_AOT_DIR)/$$n.c.new $(WASM_AOT_DIR)/$$n.c; fi; \
-	  names="$$names $$n"; \
-	done; \
-	echo "$$names" > $(WASM_AOT_DIR)/names
-	@# The parallel fan-out (issue #33): each stale unit compiles to its
-	@# own object, -P$(WASM_JOBS) at a time; the .o.new dance keeps an
-	@# interrupted compile from leaving a fresh-looking truncated object.
-	@# xargs propagates any unit's failure as a nonzero exit.
-	set -e; \
-	stale=""; \
-	for n in $$(cat $(WASM_AOT_DIR)/names); do \
-	  if [ ! -f $(WASM_AOT_DIR)/$$n.o ] || [ $(WASM_AOT_DIR)/$$n.c -nt $(WASM_AOT_DIR)/$$n.o ]; \
-	  then stale="$$stale $$n"; fi; \
-	done; \
-	echo "aot: compiling $$(echo $$stale | wc -w) of $$(cat $(WASM_AOT_DIR)/names | wc -w) units (-P$(WASM_JOBS)), rest reused"; \
-	printf '%s\n' $$stale | xargs -r -P $(WASM_JOBS) -n 1 -I{} \
-	  sh -c 'echo "aot cc: {}"; $(WASM_CLANGXX) $(WASM_CFLAGS) $(WASM_MODE) $(WASM_EXTRA) -DLUA_AOT -c -x c $(WASM_AOT_DIR)/{}.c -o $(WASM_AOT_DIR)/{}.o.new && mv $(WASM_AOT_DIR)/{}.o.new $(WASM_AOT_DIR)/{}.o'
-	set -e; \
-	names=$$(cat $(WASM_AOT_DIR)/names); \
-	{ echo '#include "lua.h"'; \
-	  echo '#include "lauxlib.h"'; \
-	  for n in $$names; do echo "int luaopen_aot_$$n(lua_State *L);"; done; \
-	  echo 'void luaot_preload(lua_State *L) {'; \
-	  echo '  luaL_getsubtable(L, LUA_REGISTRYINDEX, LUA_PRELOAD_TABLE);'; \
-	  for n in $$names; do \
-	    echo "  lua_pushcfunction(L, luaopen_aot_$$n);"; \
-	    echo "  lua_setfield(L, -2, \"aot_$$n\");"; \
-	  done; \
-	  echo '  lua_pop(L, 1);'; \
-	  echo '}'; } > $(WASM_AOT_DIR)/registry.c; \
-	objs=""; \
-	for n in $$names; do objs="$$objs $(WASM_AOT_DIR)/$$n.o"; done; \
-	$(WASM_CLANGXX) $(WASM_FLAGS) $(WASM_MODE) $(WASM_EXTRA) -DLUA_AOT -o $(WASM_O) \
-	  -x c++ src/onelua.c -x c $(WASM_AOT_DIR)/registry.c -x none $$objs $(WASM_EH_LIBS)
-endif
 	@# External EH sanity gate (finding 4): -DLUAW_EXTERNAL_EH suppresses the
 	@# bundled shim, but linking a real libc++abi produces no duplicate-symbol
 	@# error if the archive is never pulled -- you silently fall back to nothing.
@@ -319,23 +246,13 @@ endif
 # The luaw_* reactor glue is excluded (no -DMAKE_REACTOR): embedders drive the
 # VM through lua.h. The exec model is the downstream's link-time choice, absent
 # from the archive by design.
-#
-# AOT composition (LUA_AOT=1): builds the archive with internal symbols
-# linkable, so luaot-generated modules (partial evaluations of lvm.c -- see
-# luaot_header.c's "already exported by liblua.a") can bind against it. The
-# downstream runs ./src/luaot on its own .lua modules, compiles the generated
-# C, and links it with this archive. See doc/embedding.md and examples/embed.
 WASM_AR= llvm-ar
 LUA_A= liblua.a
 LUA_A_O= onelua-lib.o
 LUA_INCDIR= include
 LUA_PUB_HEADERS= src/lua.h src/luaconf.h src/lualib.h src/lauxlib.h src/lua.hpp
 
-ifeq ($(strip $(LUA_AOT)),)
 LUA_A_DEFS= -DMAKE_LIB
-else
-LUA_A_DEFS= -DMAKE_LIB -DLUA_AOT
-endif
 
 liblua.a:
 	$(WASM_CLANGXX) $(WASM_CFLAGS) $(WASM_EXTRA) $(LUA_A_DEFS) \
@@ -343,7 +260,7 @@ liblua.a:
 	$(WASM_AR) rcs $(LUA_A) $(LUA_A_O)
 	@mkdir -p $(LUA_INCDIR)
 	cp $(LUA_PUB_HEADERS) $(LUA_INCDIR)/
-	@echo "built $(LUA_A) + public headers in $(LUA_INCDIR)/ for wasm32-wasi (LUA_AOT='$(LUA_AOT)')"
+	@echo "built $(LUA_A) + public headers in $(LUA_INCDIR)/ for wasm32-wasi"
 
 # list targets that do not create files (but not all makes understand .PHONY)
 .PHONY: all $(PLATS) clean test install uninstall local none dummy echo pc wasm liblua.a

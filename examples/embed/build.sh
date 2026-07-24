@@ -1,8 +1,7 @@
 #!/bin/sh
 # Build the embed example for wasm32-wasi via issue #11's recommended
-# source-drop path: the downstream (embed.c), its AOT-compiled module
-# (game.lua -> aot_game.c), and onelua.c all compile in one build under
-# the flag contract documented in doc/embedding.md.
+# source-drop path: the downstream (embed.c) and onelua.c compile in one
+# build under the flag contract documented in doc/embedding.md.
 #
 # Env knobs:
 #   WASM_CXX      wasm C++ driver (default clang++-20). Hosts without a
@@ -21,18 +20,8 @@ WASM_SYSROOT="${WASM_SYSROOT-/usr}"
 WASM_EXTRA="${WASM_EXTRA:-}"
 OUT="${OUT:-embed.wasm}"
 
-# 1. Host tool: luaot turns Lua into C. Built natively for the build machine.
-make -C "$ROOT/src" guess >/dev/null
-
-# 2. AOT-compile the downstream's Lua module. -c pins the baked chunkname
-#    (issue #31) to what a runtime load of game.lua would report, so the
-#    AOT'd module's tracebacks match the file's own debug identity -- the
-#    '@' prefix marks it a filename, mirroring the Makefile's WASM_AOT path.
-"$ROOT/src/luaot" game.lua -o aot_game.c -m aot_game -c "@game.lua"
-
-# 3. Link Lua in (the flag contract; see doc/embedding.md):
+# Link Lua in (the flag contract; see doc/embedding.md):
 #    -DMAKE_LIB           core + libraries, NO luaw_* reactor glue
-#    -DLUA_AOT            internal symbols linkable so the AOT module binds
 #    -fwasm-exceptions    Lua errors unwind via wasm-EH...
 #    onelua.c as C++      ...so onelua.c takes its C++ EH path (the C
 #                         setjmp/longjmp route is blocked upstream, #18);
@@ -46,16 +35,16 @@ $WASM_CXX $WASM_EXTRA \
   --target=wasm32-wasi $sysroot_flag -O2 -fno-strict-aliasing \
   -fwasm-exceptions -nostdlib++ -mllvm -wasm-use-legacy-eh=false \
   -D_WASI_EMULATED_SIGNAL -D_WASI_EMULATED_PROCESS_CLOCKS \
-  -DLUA_USE_JUMPTABLE=0 -DMAKE_LIB -DLUA_AOT \
+  -DLUA_USE_JUMPTABLE=0 -DMAKE_LIB \
   -I"$ROOT/src/wasi" -I"$ROOT/src" \
   -Wl,-z,stack-size=8388608 \
   -x c++ "$ROOT/src/onelua.c" \
-  -x c aot_game.c embed.c \
+  -x c embed.c \
   -lwasi-emulated-signal -lwasi-emulated-process-clocks \
   -o "$OUT"
 echo "built $OUT"
 
-# 4. Run it (a WASI command; Node >= 24.15). Expect: EMBED WITNESS OK
+# Run it (a WASI command; Node >= 24.15). Expect: EMBED WITNESS OK
 RUN="${RUN:-node $ROOT/scripts/wasm-run.mjs}"
 # shellcheck disable=SC2086
 exec $RUN "$OUT"

@@ -8,8 +8,8 @@
 #   with stable exnref), and the embeddable reactor passes its
 #   host-interface witness plus the stress battery.
 # embed: the link-Lua-in consumer shape (#11) -- the source-drop
-#   downstream (AOT module + Lua error across the boundary) and the
-#   external-EH witness (typed catches via a real wasm-EH libc++abi).
+#   downstream (drives embedded Lua + Lua error across the boundary) and
+#   the external-EH witness (typed catches via a real wasm-EH libc++abi).
 # browser: the suite-prefix bundle in a real Chromium.
 # provenance: the vendored core is verbatim stock 5.4.8 outside the
 #   declared files.
@@ -88,8 +88,8 @@ jobs:
 
   embed:
     # The second consumer shape (#11): a downstream that links Lua *into*
-    # its own wasm32-wasi artifact via the source-drop path, drives an
-    # AOT-compiled module, and catches a Lua error across the boundary.
+    # its own wasm32-wasi artifact via the source-drop path, drives
+    # embedded Lua, and catches a Lua error across the boundary.
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v6

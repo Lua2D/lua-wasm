@@ -43,11 +43,8 @@ LUA_O=	lua.o
 LUAC_T=	luac
 LUAC_O=	luac.o
 
-AOT_T=	luaot
-AOT_O=	luaot.o
-
-ALL_O= $(BASE_O) $(LUA_O) $(LUAC_O) $(AOT_O)
-ALL_T= $(LUA_A) $(LUA_T) $(LUAC_T) $(AOT_T)
+ALL_O= $(BASE_O) $(LUA_O) $(LUAC_O)
+ALL_T= $(LUA_A) $(LUA_T) $(LUAC_T)
 ALL_A= $(LUA_A)
 
 # Targets start here.
@@ -68,9 +65,6 @@ $(LUA_T): $(LUA_O) $(LUA_A)
 
 $(LUAC_T): $(LUAC_O) $(LUA_A)
 	$(CC) -o $@ $(LDFLAGS) $(LUAC_O) $(LUA_A) $(LIBS)
-
-$(AOT_T): $(AOT_O) $(LUA_A)
-	$(CC) -o $@ $(LDFLAGS) $(AOT_O) $(LUA_A) $(LIBS)
 
 test:
 	./$(LUA_T) -v
@@ -158,12 +152,6 @@ lparser.o:
 
 lcode.o:
 	$(CC) $(CFLAGS) $(CMCFLAGS) -c lcode.c
-
-# LuaAOT has extra if-defs
-
-luaot.o: luaot.c luaot_gotos.c \
- lua.h lauxlib.h ldebug.h lobject.h lopcodes.h lopnames.h lstate.h lundump.h
-	$(CC) $(CFLAGS) -c $< -o $@
 
 # DO NOT DELETE
 

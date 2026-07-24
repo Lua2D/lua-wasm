@@ -66,10 +66,9 @@ jobs:
             lua.wasm lua-lib.wasm
       - name: fire the release-tier deep witnesses against the tag
         # The tag above is created with GITHUB_TOKEN, whose events do not
-        # chain-trigger on.push workflows -- dispatch deep-witness (all
-        # jobs: AOT differential, plain clang-20, benchmark refresh)
-        # explicitly so every release carries the heavy-tier evidence
-        # (issue #3's release tier).
+        # chain-trigger on.push workflows -- dispatch deep-witness (the
+        # plain clang-20 full-suite build) explicitly so every release
+        # carries the heavy-tier evidence (issue #3's release tier).
         env:
           GH_TOKEN: ${{ github.token }}
         run: gh workflow run deep-witness.yml --ref "${{ inputs.version }}" -f job=all

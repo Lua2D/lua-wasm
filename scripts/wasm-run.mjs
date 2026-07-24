@@ -16,8 +16,8 @@ const wasi = new WASI({
   args: ['lua', ...process.argv.slice(3)],
   env: process.env,
   // the working directory is the guest's world; its parent is reachable
-  // as '..' so a script can be run from a sibling directory (the AOT
-  // suite driver lives in scripts/ and runs with tests/ as cwd)
+  // as '..' so a script can be run from a sibling directory (e.g. a
+  // driver in scripts/ running with tests/ as cwd)
   preopens: { '/': process.cwd(), '.': process.cwd(), '..': resolve(process.cwd(), '..') },
   returnOnExit: true,
 });

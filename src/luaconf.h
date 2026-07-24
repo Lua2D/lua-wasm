@@ -320,8 +320,12 @@
 ** give a warning about it. To avoid these warnings, change to the
 ** default definition.
 */
-/* AOT: export all internal APIs */
+#if defined(__GNUC__) && ((__GNUC__*100 + __GNUC_MINOR__) >= 302) && \
+    defined(__ELF__)		/* { */
+#define LUAI_FUNC	__attribute__((visibility("internal"))) extern
+#else				/* }{ */
 #define LUAI_FUNC	extern
+#endif				/* } */
 
 #define LUAI_DDEC(dec)	LUAI_FUNC dec
 #define LUAI_DDEF	/* empty */

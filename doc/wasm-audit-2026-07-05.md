@@ -82,7 +82,7 @@ sharpens the floor the audit could only state as "Node ≥ 24":
 - **Node 24.0 through 24.14 refuse the artifact outright** — V8 13.6's node
   builds keep exnref flag-gated, so `WebAssembly.compile` rejects `try_table`
   (opcode 0x1f) unless `--experimental-wasm-exnref` is passed. With the flag,
-  the full suite and the all-32 differential pass (24.13 probed).
+  the full suite passes (24.13 probed).
 - **Node 24.15.0 is the first 24.x that enables exnref by default**; 24.16 and
   24.18 confirmed likewise. CI's green "Node 24" runs were riding the runner
   cache serving 24.18.0 — the workflows now pin `>=24.15 <25`.

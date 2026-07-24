@@ -1,20 +1,21 @@
 #!/bin/sh
 # verify-stock.sh -- witness that the vendored Lua core is verbatim stock
-# 5.4.8 except for the files we knowingly changed for AOT hooking.
+# 5.4.8 except for the one file we knowingly changed.
 #
-# The fork vendors PUC-Rio Lua 5.4.8 and modifies exactly five files:
-# lobject.h, lfunc.c, lvm.c, luaconf.h (AOT hooking), and luac.c (the
-# assert-safe bytecode-listing rework described in UPDATING: stock luac
-# hoists GETARG_* into locals, which trips lua_assert on opcodes lacking
-# those argument formats under -DLUAI_ASSERT; found by this witness's
-# first CI run -- it was inherited from the lua-aot import, undeclared).
+# The fork vendors PUC-Rio Lua 5.4.8 and modifies exactly one file:
+# luac.c (the assert-safe bytecode-listing rework described in UPDATING:
+# stock luac hoists GETARG_* into locals, which trips lua_assert on
+# opcodes lacking those argument formats under -DLUAI_ASSERT; found by
+# this witness's first CI run -- it was inherited from the lua-aot import,
+# undeclared). Until v0.2.0 there were five modified files: lobject.h,
+# lfunc.c, lvm.c, and luaconf.h carried AOT hooks, now removed with AOT.
 # This script diffs every source
 # file present in both the official release and src/:
 #   - a file outside the known-modified set that differs   -> FAIL
 #   - a known-modified file that is byte-identical to stock -> FAIL (the
 #     modified list has gone stale)
-# Files unique to this repo (the luaot compiler and its templates, the
-# onelua monolith, the WASI shims) are reported, not diffed.
+# Files unique to this repo (the onelua monolith, the WASI shims) are
+# reported, not diffed.
 #
 # Network: by default this fetches the release from lua.org. Run it where
 # outbound HTTPS to lua.org is permitted -- locally, or the CI job in #3;
@@ -29,7 +30,7 @@ LUA_VERSION=5.4.8
 LUA_SHA256="4f18ddae154e793e46eeab727c59ef1c0c0c2b744e7b94219710d76f530629ae"
 URL="https://www.lua.org/ftp/lua-${LUA_VERSION}.tar.gz"
 
-MODIFIED="lobject.h lfunc.c lvm.c luaconf.h luac.c"
+MODIFIED="luac.c"
 REPO_SRC=$(CDPATH= cd "$(dirname "$0")/../src" && pwd)
 
 work=$(mktemp -d)

@@ -109,16 +109,6 @@ the driver refuses to report a pass unless the page truly ran on that engine;
 CI runs all three, with Chromium (V8) gating and Firefox/WebKit non-gating
 until their wasm-EH support is confirmed (#42).
 
-The deepest wasm witness is the AOT/interpreter differential: build with
-every suite file AOT-compiled in, then diff the two legs' output
-(`scripts/differential.sh lua-aot.wasm` → expect `differential: AGREED`;
-its one documented structural exclusion and its evidence live in that
-script's header). CI home: `deep-witness.yml` → `aot-differential`
-(manual dispatch, and automatically on every release tag — the build
-compiles ~1.2M lines of generated C, under an hour on a standard runner
-with the parallel per-unit compiles (#33), and minutes on a warm object
-cache).
-
 > **On old V8 (Node 22/23) the suite host-crashes.** The to-be-closed/coroutine
 > region of `locals.lua` SIGSEGVs the *host* process there — a V8 12.x-era
 > engine defect on both its EH paths, fixed in current V8 and absent on non-V8

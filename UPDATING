@@ -1,4 +1,4 @@
-Updating this compiler to a new release of Lua is a manual process.
+Updating this fork to a new release of Lua is a manual process.
 This document describes how to get started on that.
 
 Updating the code
@@ -9,29 +9,27 @@ Updating the code
    upstream's testes/* into this repo's tests/ (contents stay verbatim;
    only the directory name differs). The $Id: testes/... $ tags inside
    the files are upstream's own and are left untouched.
-1. Back up the luaot.c, luaot_header.c and luaot_footer.c
-2. Replace the src folder with a clean copy of Lua.
-3. Reapply the modifications to the Makefile and the interpreter.
+1. Replace the src folder with a clean copy of Lua.
+2. Reapply the one modification.
    - The authoritative set is enforced by scripts/verify-stock.sh, which on
      every CI run diffs the vendored core against stock Lua and asserts that
-     exactly five source files differ: lobject.h, lfunc.c, lvm.c, luaconf.h,
-     and luac.c (plus the luaot targets in src/Makefile). Diff those files
-     against the clean copy from step 2 to see each change.
-   - The AOT rationale for the interpreter changes is described in the paper.
-4. Update the luaot files
-   - In the luaot.c, update the parts copied from luac.c.
-     The most common source of change is if Lua introduces a new opcode, or changes an existing one.
-   - In the luaot.c, update the parts copied from lvm.c
-     Parts that mess with the program counter or that do gotos require manual intervention
-   - Recreate the luaot_header.c. Go through the lvm.c and check each macro one by one.
-     The macros that do jumps or mess with the program counter need to be modified accordingly.
+     exactly one source file differs: luac.c. Diff it against the clean copy
+     from step 1 to see the change.
+   - luac.c: the assert-safe bytecode-listing rework. Stock luac hoists
+     GETARG_* into locals, which trips lua_assert on opcodes lacking those
+     argument formats under -DLUAI_ASSERT.
 
 Testing
 =======
 
-Since we're abusing the Lua internals, it is easy to break things.
-I highly recommend turning on the lua_assert assertions by assing the LUAI_ASSERT compiler flag
+Since the vendored core is verbatim stock, the interpreter needs no special
+care beyond the official suite (see CONTRIBUTING.md). To exercise the
+internals with assertions on, add the LUAI_ASSERT compiler flag:
 
     MYCFLAGS=-DLUAI_ASSERT
 
-In Lua ≤ 5.4.3, luac had a bug and did not work correctly with the assertions. This includes the luac code that we copied in the luaot.c. If this isn't fixed yet, you may need to fix the luac.c (see commit 1a1fefac) or just disable the assertions in that file with a `#undef LUAI_ASSERT` at the top of the file.
+In Lua ≤ 5.4.3, luac had a bug and did not work correctly with the
+assertions. This includes the luac.c rework noted above. If this isn't
+fixed yet, you may need to fix luac.c (see commit 1a1fefac) or just disable
+the assertions in that file with a `#undef LUAI_ASSERT` at the top of the
+file.

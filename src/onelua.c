@@ -23,14 +23,11 @@
 #define lvm_c
 #include "luaconf.h"
 
-/* Do not export internal symbols -- unless this build links AOT
-** modules (-DLUA_AOT) or the ltests debug library (-DLUA_LTESTS).
-** luaot-generated translation units are partial evaluations of lvm.c,
-** and ltests.c pokes VM internals by design; both call internals
-** directly, so those builds leave LUAI_FUNC at luaconf.h's plain
-** extern. Hidden visibility still keeps everything out of the
-** artifact's export list. */
-#if !defined(LUA_AOT) && !defined(LUA_LTESTS)
+/* Do not export internal symbols -- unless this build links the ltests
+** debug library (-DLUA_LTESTS). ltests.c pokes VM internals by design,
+** so that build leaves LUAI_FUNC at luaconf.h's plain extern. Hidden
+** visibility still keeps everything out of the artifact's export list. */
+#if !defined(LUA_LTESTS)
 #undef LUAI_FUNC
 #undef LUAI_DDEC
 #undef LUAI_DDEF
@@ -46,7 +43,7 @@
 #define LUAI_DDEC(dec)	static dec
 #define LUAI_DDEF	static
 #endif
-#endif /* !LUA_AOT && !LUA_LTESTS */
+#endif /* !LUA_LTESTS */
 
 /*
 ** ── WASI support ────────────────────────────────────────────────────
@@ -261,8 +258,8 @@ char *setlocale (int category, const char *locale) {
 
 #endif /* __wasm__ */
 
-/* When compiled as C++, keep C linkage throughout: AOT modules are
-** separate C translation units that call back into the VM, and the
+/* When compiled as C++, keep C linkage throughout: a C downstream that
+** links this in (examples/embed) calls back into the VM, and the
 ** boundary must agree on symbol names. Linkage only -- inside these
 ** braces the code still compiles as C++ (which is how LUAI_THROW
 ** becomes a real throw). */
@@ -310,19 +307,6 @@ extern "C" {
 #include "lutf8lib.c"
 #include "linit.c"
 
-/* AOT modules: the build generates a registry translation unit that
-** defines luaot_preload() (one package.preload entry per compiled
-** module). The interpreter picks them up by opening the registry
-** right after the standard libraries. */
-#if defined(LUA_AOT)
-void luaot_preload (lua_State *L);
-static void luaot_openlibs (lua_State *L) {
-  luaL_openlibs(L);
-  luaot_preload(L);
-}
-#define luaL_openlibs	luaot_openlibs
-#endif
-
 /* The witness debug build (-DLUA_LTESTS): vendored upstream ltests
 ** (tests/ltests/) instruments the VM -- checked allocator, internal
 ** assertions, and the T library that unlocks the suite's C-API
@@ -341,7 +325,7 @@ static lua_State *luaw_ltests_newstate (void) {
   return lua_newstate(debug_realloc, &l_memcontrol);
 }
 static void luaw_ltests_openlibs (lua_State *L) {
-  luaL_openlibs(L);   /* expands to the AOT hook when both are on */
+  luaL_openlibs(L);
   luaL_requiref(L, "T", luaB_opentests, 1);
   lua_pop(L, 1);
 }
@@ -402,8 +386,7 @@ static void luaw_clearerror (void) {
   lua_setfield(luaw_L, LUA_REGISTRYINDEX, LUAW_ERRKEY);
 }
 
-/* create the VM: standard libraries plus any AOT modules linked into
-   this artifact; returns 0 on success */
+/* create the VM: standard libraries; returns 0 on success */
 LUAW_API int luaw_init (void) {
   if (luaw_L != NULL) return 0;
   luaw_L = luaL_newstate();

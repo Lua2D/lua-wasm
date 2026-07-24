@@ -1,9 +1,11 @@
 # AOT sunset — the decision and its evidence (2026-07-24)
 
-This records why lua.wasm is removing its ahead-of-time compiler, and the
-measurements that decided it. `v0.1.0` is the last release that includes
-AOT; `v0.2.0` removes it. This is a record, not a plan on the grid — the
-removal work is tracked as its own issue.
+This records why lua.wasm removed its ahead-of-time compiler, and the
+measurements that decided it. `v0.1.0` was the last release to include AOT;
+`v0.2.0` removes it. The benchmark harness and kernels named below
+(`scripts/differential.sh`, `scripts/bench.lua`,
+`scripts/browser/bench-page.html`, and `experiments/`) lived in `v0.1.0`
+and remain in git history; `v0.2.0` removed them with AOT.
 
 ## What AOT was
 
@@ -81,6 +83,12 @@ Stripping them returns those files to verbatim stock, leaving `luac.c` (the
 assert-safe listing rework, unrelated to AOT) as the sole declared
 modification — from five modified files to one, which is squarely the
 project's "verbatim stock except declared files" identity.
+
+One measured fact from the retired benchmark record is worth keeping: the
+interpreter in wasm runs roughly 2×–4.6× slower than the same interpreter
+native (benchmark-dependent). That is the cost of running in wasm at all —
+nothing buys it back without a JIT, which wasm forbids. AOT recovered only
+a fraction of it, and only for numeric loops.
 
 AOT is reintroducible from git history the day a numeric-workload,
 V8-targeting consumer actually appears. Until then it is cost without a
