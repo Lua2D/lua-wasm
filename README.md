@@ -86,4 +86,6 @@ CI runs these: [`witness.yml`](.github/workflows/witness.yml) on every PR and pu
 
 ## Lineage
 
-Built on [PUC-Rio's Lua](https://www.lua.org). An earlier generation also carried [Hugo Musso Gualandi's lua-aot](https://github.com/hugomg/lua-aot-5.4), a research AOT compiler for Lua 5.4 — removed in v0.2.0 when its wasm speedup measured marginal across browser engines (a net loss on one), not enough to justify its size and dependency ([`doc/history/aot-sunset-2026-07-24.md`](doc/history/aot-sunset-2026-07-24.md)). lua.wasm carries that heritage toward a maintained, WebAssembly-targeting artifact — credited, not tracked: it defers to no living upstream and pins to no floating version.
+Built on [PUC-Rio's Lua](https://www.lua.org). lua.wasm carries that heritage toward a maintained, WebAssembly-targeting artifact — credited, not tracked: it defers to no living upstream and pins to no floating version.
+
+An earlier generation also carried [Hugo Musso Gualandi's lua-aot](https://github.com/hugomg/lua-aot-5.4), a research AOT compiler for Lua 5.4 — removed in v0.2.0 when its wasm speedup measured marginal across browser engines (a net loss on one), not enough to justify its size and dependency ([`doc/history/aot-sunset-2026-07-24.md`](doc/history/aot-sunset-2026-07-24.md)). 
